@@ -79,9 +79,10 @@ export default async function StandingsPage({
           const payout = payouts.find((p) => p.place === i + 1);
           const sports = bySport.get(e.id);
           return (
-            <div
+            <Link
               key={e.id}
-              className={`flex items-center gap-4 border-b border-border px-5 py-4 last:border-0 ${
+              href={`/s/${sw.slug}/entries/${e.id}`}
+              className={`flex items-center gap-4 border-b border-border px-5 py-4 transition last:border-0 hover:bg-surface-raised ${
                 i === 0 ? "bg-surface-raised" : ""
               }`}
             >
@@ -112,7 +113,7 @@ export default async function StandingsPage({
               <span className="w-20 text-right text-2xl font-extrabold">
                 {e.total}
               </span>
-            </div>
+            </Link>
           );
         })}
         {ranked.length === 0 && (
