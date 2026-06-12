@@ -144,6 +144,59 @@ export async function runDraw(sweepstakesId: string) {
   return { drawId: draw.id, totalPicks: picks.length };
 }
 
+/** Complete a running draw instantly (simulator/preview use). */
+export async function finishDrawNow(sweepstakesId: string) {
+  const admin = createAdminClient();
+  const { data: draw } = await admin
+    .from("draws")
+    .select("id")
+    .eq("sweepstakes_id", sweepstakesId)
+    .eq("status", "running")
+    .maybeSingle();
+  if (!draw) return { ok: false as const };
+
+  const now = new Date().toISOString();
+  await admin
+    .from("draw_picks")
+    .update({ revealed_at: now })
+    .eq("draw_id", draw.id)
+    .is("revealed_at", null);
+
+  const { data: allPicks } = await admin
+    .from("draw_picks")
+    .select("entry_id,team_id,teams(sport_id)")
+    .eq("draw_id", draw.id);
+  if (allPicks?.length) {
+    await admin.from("rosters").upsert(
+      allPicks.map((p) => ({
+        entry_id: p.entry_id,
+        team_id: p.team_id,
+        sport_id: (p.teams as unknown as { sport_id: string }).sport_id,
+      })),
+      { onConflict: "entry_id,team_id" },
+    );
+  }
+
+  const { data: audit } = await admin
+    .from("audit_log")
+    .select("detail")
+    .eq("action", "draw.created")
+    .eq("target", draw.id)
+    .single();
+  const seed = (audit?.detail as { seed?: string })?.seed ?? null;
+
+  await admin
+    .from("draws")
+    .update({ status: "completed", seed, completed_at: now })
+    .eq("id", draw.id);
+  await admin
+    .from("sweepstakes")
+    .update({ status: "active" })
+    .eq("id", sweepstakesId);
+  await broadcast(`draw:${sweepstakesId}`, "complete", { seed });
+  return { ok: true as const, picks: allPicks?.length ?? 0 };
+}
+
 export async function revealNextPick(sweepstakesId: string) {
   const admin = createAdminClient();
 

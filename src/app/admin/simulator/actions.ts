@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { runDraw, finishDrawNow } from "@/lib/draw";
+import { scorePass } from "@/lib/ingest";
 
 const SIM_SLUG = "draw-simulator";
 const SIM_EMAIL = "simulator@wwossweepstakes.com";
@@ -150,6 +152,72 @@ export async function resetSimulator(): Promise<{
     return {
       ok: false,
       message: err instanceof Error ? err.message : "Reset failed.",
+    };
+  }
+}
+
+const CHATTER: [number, string][] = [
+  [0, "Drew two playoff teams. It's over for the rest of you. 🏆"],
+  [4, "Whoever invented random draws owes me a refund"],
+  [2, "My golf picks better start earning their keep"],
+  [7, "Checking the standings hourly is my cardio"],
+  [11, "Talk to me after football season starts 😤"],
+  [1, "The board is quiet because you're all scared"],
+];
+
+/**
+ * One-click end-to-end preview: fresh field → instant draw → score from
+ * real ingested finals → seeded chatter. Standings, rosters, upcoming
+ * games and the board all populate with live data.
+ */
+export async function instantPreview(): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  try {
+    // Fresh field first (also creates the pool on first run)
+    const reset = await resetSimulator();
+    if (!reset.ok) return reset;
+
+    const admin = createAdminClient();
+    const { data: sim } = await admin
+      .from("sweepstakes")
+      .select("id")
+      .eq("slug", "draw-simulator")
+      .single();
+    if (!sim) return { ok: false, message: "Simulator pool missing." };
+
+    await runDraw(sim.id);
+    const done = await finishDrawNow(sim.id);
+    const scored = await scorePass();
+
+    // Seed smack talk from the entries themselves
+    const { data: entries } = await admin
+      .from("entries")
+      .select("id,owner_user_id,display_name")
+      .eq("sweepstakes_id", sim.id)
+      .order("created_at");
+    if (entries?.length) {
+      const base = Date.now() - CHATTER.length * 3600e3;
+      await admin.from("posts").insert(
+        CHATTER.map(([idx, body], i) => ({
+          sweepstakes_id: sim.id,
+          user_id: entries[idx % entries.length].owner_user_id,
+          body: `${entries[idx % entries.length].display_name}: ${body}`,
+          created_at: new Date(base + i * 3600e3).toISOString(),
+        })),
+      );
+    }
+
+    revalidatePath("/admin/simulator");
+    return {
+      ok: true,
+      message: `Preview live — ${done.ok ? done.picks : 0} picks drawn, ${scored.events} point events scored from real games. Open the pool pages!`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Preview failed.",
     };
   }
 }

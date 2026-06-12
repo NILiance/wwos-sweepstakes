@@ -8,6 +8,21 @@ import {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+/** Page through PostgREST's 1000-row response cap. */
+async function allRows<T>(
+  query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; ; i += 1000) {
+    const { data, error } = await query(i, i + 999);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+
 /**
  * Map provider teams onto the central teams table by abbreviation, then by
  * market/name. Unmatched rostered keys become data alerts, never silent.
@@ -135,11 +150,16 @@ export async function scorePass() {
   };
 
   // Rostered teams in active pools
-  const { data: rosters } = await admin
-    .from("rosters")
-    .select("entry_id,team_id,sport_id,entries!inner(sweepstakes_id,status,sweepstakes!inner(status))");
+  const rosters = await allRows((from, to) =>
+    admin
+      .from("rosters")
+      .select(
+        "entry_id,team_id,sport_id,entries!inner(sweepstakes_id,status,sweepstakes!inner(status))",
+      )
+      .range(from, to),
+  );
 
-  const active = (rosters ?? []).filter((r) => {
+  const active = rosters.filter((r) => {
     const e = r.entries as unknown as {
       status: string;
       sweepstakes: { status: string };
@@ -149,29 +169,35 @@ export async function scorePass() {
   if (!active.length) return { events: 0, finals: 0 };
 
   const teamIds = [...new Set(active.map((r) => r.team_id))];
-  const { data: finals } = await admin
-    .from("games")
-    .select("id,sport_id,winner_team_id,event_type")
-    .eq("status", "final")
-    .not("winner_team_id", "is", null)
-    .in("winner_team_id", teamIds);
+  const finals = await allRows((from, to) =>
+    admin
+      .from("games")
+      .select("id,sport_id,winner_team_id,event_type")
+      .eq("status", "final")
+      .not("winner_team_id", "is", null)
+      .in("winner_team_id", teamIds)
+      .range(from, to),
+  );
 
   // Idempotency: load already-awarded (entry, game, rule, scope) tuples.
   // (The DB unique constraint can't help — NULL reversal_of makes rows distinct.)
   const entryIds = [...new Set(active.map((r) => r.entry_id))];
-  const { data: existing } = await admin
-    .from("point_events")
-    .select("entry_id,game_id,rule_key,scope")
-    .in("entry_id", entryIds)
-    .is("reversal_of", null);
+  const existing = await allRows((from, to) =>
+    admin
+      .from("point_events")
+      .select("entry_id,game_id,rule_key,scope")
+      .in("entry_id", entryIds)
+      .is("reversal_of", null)
+      .range(from, to),
+  );
   const seen = new Set(
-    (existing ?? []).map(
+    existing.map(
       (e) => `${e.entry_id}:${e.game_id}:${e.rule_key}:${e.scope}`,
     ),
   );
 
   let events = 0;
-  for (const game of finals ?? []) {
+  for (const game of finals) {
     const holders = active.filter((r) => r.team_id === game.winner_team_id);
     for (const holder of holders) {
       const key = `${holder.entry_id}:${game.id}:${game.event_type}:full_game`;
@@ -193,11 +219,19 @@ export async function scorePass() {
       }
     }
   }
-  return { events, finals: finals?.length ?? 0 };
+  return { events, finals: finals.length };
 }
 
-export async function runIngest(leagues: League[]) {
+export async function runIngest(leagues: League[], includeGolf = true) {
   const results: Record<string, unknown> = {};
+  if (includeGolf) {
+    try {
+      const { syncGolf } = await import("@/lib/golf");
+      results.golf = await syncGolf();
+    } catch (err) {
+      results.golf = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
   for (const league of leagues) {
     try {
       const teams = await syncTeams(league);

@@ -45,19 +45,26 @@ export default async function SimulatorPage() {
               )}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
+              <ResetButton label="Instant full preview" mode="preview" />
               <Link
                 href={`/admin/draw/${sim.id}`}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
-              >
-                🎰 Draw Control
-              </Link>
-              <Link
-                href="/s/draw-simulator/draw"
                 className="rounded-md border border-border px-4 py-2 text-sm font-semibold hover:bg-surface-raised"
               >
-                Watch the live board
+                🎰 Draw Control (live reveal)
               </Link>
-              <ResetButton label="Reset simulator" />
+              <ResetButton label="Reset" />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-4 text-sm">
+              {[
+                ["/s/draw-simulator", "Pool page"],
+                ["/s/draw-simulator/standings", "Standings"],
+                ["/s/draw-simulator/draw", "Draw board"],
+                ["/s/draw-simulator/board", "Smack talk"],
+              ].map(([href, label]) => (
+                <Link key={href} href={href} className="text-info hover:underline">
+                  {label} →
+                </Link>
+              ))}
             </div>
           </div>
         ) : (

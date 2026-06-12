@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { syncNow } from "./actions";
 
-const LEAGUES = ["all", "nfl", "cfb", "nba", "cbb", "nhl", "mlb", "wnba"];
+const LEAGUES = ["all", "nfl", "cfb", "nba", "cbb", "nhl", "mlb", "wnba", "golf"];
 
 export function SyncButton() {
   const [state, formAction, pending] = useActionState(syncNow, null);

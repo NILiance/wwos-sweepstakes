@@ -25,9 +25,19 @@ export default async function BoardPage({
     .single();
   if (!sw) notFound();
 
-  // membership check (board is members-only)
+  // membership check (board is members-only; admin/staff can always view)
   let isMember = false;
   if (user) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role,is_admin")
+      .eq("id", user.id)
+      .single();
+    if (profile?.role === "admin" || profile?.role === "staff" || profile?.is_admin) {
+      isMember = true;
+    }
+  }
+  if (user && !isMember) {
     const { data: entry } = await admin
       .from("entries")
       .select("id")

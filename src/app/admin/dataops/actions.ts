@@ -13,8 +13,12 @@ export async function syncNow(
     await requireStaff("dataops");
     const league = String(formData.get("league") ?? "all");
     const leagues =
-      league === "all" ? LEAGUES : LEAGUES.filter((l) => l === (league as League));
-    const results = await runIngest(leagues);
+      league === "all" || league === "golf"
+        ? league === "golf"
+          ? []
+          : LEAGUES
+        : LEAGUES.filter((l) => l === (league as League));
+    const results = await runIngest(leagues, league === "all" || league === "golf");
     revalidatePath("/admin/dataops");
     const parts = Object.entries(results)
       .filter(([k]) => k !== "scoring")

@@ -1,8 +1,172 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const SPORT_IDS = ["cfb", "nfl", "cbb", "nba", "wnba", "nhl", "pga", "liv", "mlb"];
+
+function parseConfig(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) throw new Error("Name is required.");
+  let slug = String(formData.get("slug") ?? "").trim().toLowerCase();
+  if (!slug) slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (!/^[a-z0-9-]{2,}$/.test(slug)) throw new Error("Slug must be letters/numbers/dashes.");
+
+  const dollars = (key: string) =>
+    Math.round(Number(formData.get(key) ?? 0) * 100);
+
+  const payout_structure = [1, 2, 3, 4]
+    .map((p) => ({ place: p, amount_cents: dollars(`payout_${p}`) }))
+    .filter((p) => p.amount_cents > 0);
+
+  const sports = SPORT_IDS.filter((s) => formData.get(`sport_${s}`)).map(
+    (s) => ({
+      sport_id: s,
+      picks_per_entry: Math.max(1, Number(formData.get(`picks_${s}`) ?? 1)),
+      pool_source: "all" as const,
+    }),
+  );
+  if (!sports.length) throw new Error("Pick at least one sport.");
+
+  return {
+    name,
+    slug,
+    description: String(formData.get("description") ?? "").trim() || null,
+    season_label: String(formData.get("season_label") ?? "").trim() || null,
+    visibility: formData.get("visibility") === "private" ? "private" : "public",
+    pool_size: Math.max(2, Number(formData.get("pool_size") ?? 15)),
+    entry_price_cents: dollars("entry_price"),
+    payout_structure,
+    sports,
+  };
+}
+
+export async function createSweepstakes(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  let created = false;
+  try {
+    const { userId } = await requireStaff("sweepstakes");
+    const cfg = parseConfig(formData);
+    const admin = createAdminClient();
+
+    const { data: sw, error } = await admin
+      .from("sweepstakes")
+      .insert({
+        name: cfg.name,
+        slug: cfg.slug,
+        description: cfg.description,
+        season_label: cfg.season_label,
+        visibility: cfg.visibility,
+        status: "draft",
+        pool_size: cfg.pool_size,
+        entry_price_cents: cfg.entry_price_cents,
+        payout_structure: cfg.payout_structure,
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await admin.from("sweepstakes_sports").insert(
+      cfg.sports.map((s) => ({ ...s, sweepstakes_id: sw.id })),
+    );
+
+    const productName = String(formData.get("product_name") ?? "").trim();
+    if (productName) {
+      await admin.from("products").insert({
+        sweepstakes_id: sw.id,
+        name: productName,
+        description:
+          String(formData.get("product_description") ?? "").trim() || null,
+        price_cents:
+          Math.round(Number(formData.get("product_price") ?? 0) * 100) ||
+          cfg.entry_price_cents,
+        requires_shipping: !!formData.get("product_shipping"),
+        images: [],
+        offers: [],
+        active: true,
+      });
+    }
+
+    await admin.from("audit_log").insert({
+      actor: userId,
+      action: "sweepstakes.create",
+      target: sw.id,
+      detail: { name: cfg.name, slug: cfg.slug },
+    });
+    created = true;
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+  if (created) {
+    revalidatePath("/admin/sweepstakes");
+    redirect("/admin/sweepstakes");
+  }
+  return { ok: true, message: "Created." };
+}
+
+export async function updateSweepstakes(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { userId } = await requireStaff("sweepstakes");
+    const id = String(formData.get("id"));
+    const cfg = parseConfig(formData);
+    const admin = createAdminClient();
+
+    const { error } = await admin
+      .from("sweepstakes")
+      .update({
+        name: cfg.name,
+        slug: cfg.slug,
+        description: cfg.description,
+        season_label: cfg.season_label,
+        visibility: cfg.visibility,
+        pool_size: cfg.pool_size,
+        entry_price_cents: cfg.entry_price_cents,
+        payout_structure: cfg.payout_structure,
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+
+    // Sports config is locked once a draw exists
+    const { data: draw } = await admin
+      .from("draws")
+      .select("id")
+      .eq("sweepstakes_id", id)
+      .neq("status", "voided")
+      .maybeSingle();
+    if (!draw) {
+      await admin.from("sweepstakes_sports").delete().eq("sweepstakes_id", id);
+      await admin.from("sweepstakes_sports").insert(
+        cfg.sports.map((s) => ({ ...s, sweepstakes_id: id })),
+      );
+    }
+
+    await admin.from("audit_log").insert({
+      actor: userId,
+      action: "sweepstakes.update",
+      target: id,
+      detail: { name: cfg.name },
+    });
+
+    revalidatePath("/admin/sweepstakes");
+    revalidatePath(`/s/${cfg.slug}`, "layout");
+    return {
+      ok: true,
+      message: draw
+        ? "Saved. (Sports/picks locked — a draw already exists.)"
+        : "Saved.",
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
 
 const STATUSES = [
   "draft",
