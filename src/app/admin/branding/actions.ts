@@ -5,43 +5,6 @@ import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitizeColors } from "@/lib/theme";
 
-const IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/svg+xml",
-  "image/x-icon",
-  "image/vnd.microsoft.icon",
-  "image/gif",
-]);
-const MAX_BYTES = 20 * 1024 * 1024;
-
-async function uploadAsset(
-  file: File,
-  prefix: string,
-): Promise<string | null> {
-  if (!file || file.size === 0) return null;
-  if (!IMAGE_TYPES.has(file.type) || file.size > MAX_BYTES) {
-    throw new Error("Image must be PNG/JPG/WebP/SVG/ICO under 20 MB.");
-  }
-  const admin = createAdminClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
-  const path = `site/${prefix}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-  const { error } = await admin.storage
-    .from("media")
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw new Error(error.message);
-
-  const { data } = admin.storage.from("media").getPublicUrl(path);
-
-  await admin.from("media_assets").insert({
-    bucket_path: path,
-    kind: prefix,
-  });
-
-  return data.publicUrl;
-}
-
 export async function saveBranding(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData,
@@ -50,9 +13,16 @@ export async function saveBranding(
     const { userId: adminId } = await requireStaff("branding");
     const admin = createAdminClient();
 
-    const logo = formData.get("logo") as File | null;
-    const favicon = formData.get("favicon") as File | null;
-    const hero = formData.get("hero") as File | null;
+    // URLs arrive from browser-direct uploads (see upload-actions.ts);
+    // only accept files that landed in our own media bucket.
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/site/`;
+    const urlOf = (name: string) => {
+      const v = formData.get(name);
+      return typeof v === "string" && v.startsWith(base) ? v : null;
+    };
+    const logoUrl = urlOf("logo_url");
+    const faviconUrl = urlOf("favicon_url");
+    const heroUrl = urlOf("hero_url");
 
     const colors = sanitizeColors({
       background: formData.get("background"),
@@ -62,12 +32,6 @@ export async function saveBranding(
       muted: formData.get("muted"),
       logoHeight: formData.get("logoHeight"),
     });
-
-    const [logoUrl, faviconUrl, heroUrl] = await Promise.all([
-      logo ? uploadAsset(logo, "logo") : null,
-      favicon ? uploadAsset(favicon, "favicon") : null,
-      hero ? uploadAsset(hero, "hero") : null,
-    ]);
 
     const { data: existing } = await admin
       .from("themes")

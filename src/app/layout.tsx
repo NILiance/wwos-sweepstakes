@@ -48,7 +48,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         {cssOverrides && <style>{cssOverrides}</style>}
         <header className="border-b border-border bg-surface">
-          <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+          <nav className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 py-2">
             <Link href="/" className="flex items-center gap-3">
               {theme?.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

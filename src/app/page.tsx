@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSiteTheme } from "@/lib/theme";
 
 const SPORTS = [
   { abbrev: "College FB", picks: 4 },
@@ -29,12 +30,24 @@ const STEPS = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const theme = await getSiteTheme();
+
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="mx-auto max-w-6xl px-4 py-24 text-center">
+      <section
+        className="relative overflow-hidden bg-cover bg-center"
+        style={
+          theme?.hero_url
+            ? { backgroundImage: `url(${theme.hero_url})` }
+            : undefined
+        }
+      >
+        {theme?.hero_url && (
+          <div className="absolute inset-0 bg-navy-950/75" />
+        )}
+        <div className="relative mx-auto max-w-6xl px-4 py-24 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-silver">
             Wide World of
           </p>

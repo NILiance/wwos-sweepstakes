@@ -1,14 +1,41 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, startTransition } from "react";
 import { addProductImages, removeProductImage } from "./actions";
+import { uploadDirect } from "@/lib/upload-client";
 
 export function ImageUploader({ productId }: { productId: string }) {
   const [state, formAction, pending] = useActionState(addProductImages, null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const form = e.currentTarget;
+    const input = form.querySelector<HTMLInputElement>('input[type="file"]');
+    const files = [...(input?.files ?? [])];
+    if (!files.length) return;
+
+    const fd = new FormData();
+    fd.set("product_id", productId);
+    try {
+      setUploading(true);
+      for (const file of files) {
+        fd.append("image_urls", await uploadDirect(file, "product", productId));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+    if (input) input.value = "";
+    startTransition(() => formAction(fd));
+  }
 
   return (
-    <form action={formAction} className="mt-4 flex flex-wrap items-center gap-3">
-      <input type="hidden" name="product_id" value={productId} />
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-center gap-3">
       <input
         type="file"
         name="images"
@@ -19,11 +46,12 @@ export function ImageUploader({ productId }: { productId: string }) {
       />
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || uploading}
         className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
       >
-        {pending ? "Uploading…" : "Add photos"}
+        {uploading ? "Uploading…" : pending ? "Saving…" : "Add photos"}
       </button>
+      {error && <p className="text-sm text-brand-red">{error}</p>}
       {state && (
         <p className={`text-sm ${state.ok ? "text-info" : "text-brand-red"}`}>
           {state.message}

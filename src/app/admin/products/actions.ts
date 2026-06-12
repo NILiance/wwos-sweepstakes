@@ -4,14 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-]);
-const MAX_BYTES = 20 * 1024 * 1024;
-
 export async function addProductImages(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData,
@@ -19,10 +11,12 @@ export async function addProductImages(
   try {
     await requireStaff("products");
     const productId = String(formData.get("product_id"));
-    const files = formData
-      .getAll("images")
-      .filter((f): f is File => f instanceof File && f.size > 0);
-    if (!files.length) return { ok: false, message: "Pick at least one image." };
+    // URLs from browser-direct uploads; only accept our bucket + this product
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/products/${productId}/`;
+    const urls = formData
+      .getAll("image_urls")
+      .filter((u): u is string => typeof u === "string" && u.startsWith(base));
+    if (!urls.length) return { ok: false, message: "Pick at least one image." };
 
     const admin = createAdminClient();
     const { data: product } = await admin
@@ -31,23 +25,6 @@ export async function addProductImages(
       .eq("id", productId)
       .single();
     if (!product) return { ok: false, message: "Product not found." };
-
-    const urls: string[] = [];
-    for (const file of files) {
-      if (!IMAGE_TYPES.has(file.type) || file.size > MAX_BYTES) {
-        return {
-          ok: false,
-          message: `${file.name}: PNG/JPG/WebP/GIF under 5 MB only.`,
-        };
-      }
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
-      const path = `products/${productId}/${crypto.randomUUID().slice(0, 8)}.${ext}`;
-      const { error } = await admin.storage
-        .from("media")
-        .upload(path, file, { contentType: file.type });
-      if (error) return { ok: false, message: error.message };
-      urls.push(admin.storage.from("media").getPublicUrl(path).data.publicUrl);
-    }
 
     const images = [
       ...(Array.isArray(product.images) ? product.images : []),

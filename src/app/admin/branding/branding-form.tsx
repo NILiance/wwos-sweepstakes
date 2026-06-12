@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, startTransition } from "react";
 import { saveBranding, resetColors } from "./actions";
+import { uploadDirect } from "@/lib/upload-client";
 
 function LogoSizeSlider({ initial }: { initial: number }) {
   const [value, setValue] = useState(initial);
@@ -42,9 +43,36 @@ const COLOR_FIELDS: { key: string; label: string; hint: string }[] = [
 
 export function BrandingForm({ current, defaults }: Props) {
   const [state, formAction, pending] = useActionState(saveBranding, null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Upload files browser→storage first (Vercel caps request bodies ~4.5MB),
+  // then submit only URLs + colors to the server action.
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setUploadError(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    try {
+      setUploading(true);
+      for (const kind of ["logo", "favicon", "hero"] as const) {
+        const file = fd.get(kind);
+        fd.delete(kind);
+        if (file instanceof File && file.size > 0) {
+          fd.set(`${kind}_url`, await uploadDirect(file, kind));
+        }
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+    startTransition(() => formAction(fd));
+  }
 
   return (
-    <form action={formAction} className="mt-6 space-y-8">
+    <form onSubmit={handleSubmit} className="mt-6 space-y-8">
       {/* Images */}
       <section className="rounded-lg border border-border bg-surface p-6">
         <h3 className="font-semibold">Images</h3>
@@ -97,8 +125,8 @@ export function BrandingForm({ current, defaults }: Props) {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Colors</h3>
           <button
-            formAction={resetColors}
-            formNoValidate
+            type="button"
+            onClick={() => startTransition(() => resetColors())}
             className="text-xs text-muted underline hover:text-foreground"
           >
             Reset to brand defaults
@@ -125,6 +153,7 @@ export function BrandingForm({ current, defaults }: Props) {
         </div>
       </section>
 
+      {uploadError && <p className="text-sm text-brand-red">{uploadError}</p>}
       {state && (
         <p
           className={`text-sm ${state.ok ? "text-info" : "text-brand-red"}`}
@@ -135,10 +164,10 @@ export function BrandingForm({ current, defaults }: Props) {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || uploading}
         className="rounded-md bg-accent px-6 py-2.5 font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
       >
-        {pending ? "Saving…" : "Save branding"}
+        {uploading ? "Uploading images…" : pending ? "Saving…" : "Save branding"}
       </button>
     </form>
   );
