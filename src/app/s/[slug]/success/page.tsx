@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { fulfillCheckoutSession } from "@/lib/fulfill";
 
 export default async function SuccessPage({
@@ -14,7 +14,7 @@ export default async function SuccessPage({
   const { session_id } = await searchParams;
   if (!session_id) notFound();
 
-  const session = await stripe.checkout.sessions.retrieve(session_id);
+  const session = await getStripe().checkout.sessions.retrieve(session_id);
   const result = await fulfillCheckoutSession(session);
 
   return (
