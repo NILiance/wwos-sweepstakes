@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* WWOS brand tokens — SCOPE.md Appendix D (sampled from badge logo; refine from vector source) */
+:root {
+  --navy-950: #0e1726;
+  --navy-900: #15233f;
+  --navy-800: #1b2a4a;
+  --navy-700: #243759;
+  --navy-600: #2f4670;
+  --red-600: #a31f33;
+  --red-500: #c0273d;
+  --red-400: #d24054;
+  --sky-300: #a9d3ec;
+  --sky-200: #c4e1f3;
+  --silver-400: #a7a9ac;
+  --silver-300: #c2c4c6;
+
+  --background: var(--navy-950);
+  --surface: var(--navy-900);
+  --surface-raised: var(--navy-800);
+  --border: var(--navy-700);
+  --foreground: #f5f7fa;
+  --muted: var(--silver-400);
+  --accent: var(--red-500);
+  --accent-hover: var(--red-400);
+  --info: var(--sky-300);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-info: var(--info);
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-navy-700: var(--navy-700);
+  --color-navy-600: var(--navy-600);
+  --color-brand-red: var(--red-500);
+  --color-brand-sky: var(--sky-300);
+  --color-brand-silver: var(--silver-400);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-script: var(--font-script);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Badge ring divider — red/white/red motif from the logo */
+.brand-ring {
+  border-top: 3px solid var(--red-500);
+  box-shadow: 0 3px 0 #ffffff, 0 6px 0 var(--red-500);
+}
+
+/* Script display type for brand moments only (heroes, reveals, champions) */
+.brand-script {
+  font-family: var(--font-script), cursive;
+}
