@@ -55,7 +55,8 @@ export default async function RootLayout({
                 <img
                   src={theme.logo_url}
                   alt="Wide World of Sports Sweepstakes"
-                  className="h-11 w-auto"
+                  className="w-auto"
+                  style={{ height: theme.colors.logoHeight ?? 44 }}
                 />
               ) : (
                 <span className="flex items-baseline gap-2">

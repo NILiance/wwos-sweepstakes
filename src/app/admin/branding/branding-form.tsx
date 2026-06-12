@@ -1,14 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveBranding, resetColors } from "./actions";
+
+function LogoSizeSlider({ initial }: { initial: number }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className="mt-3 flex items-center gap-4">
+      <input
+        type="range"
+        name="logoHeight"
+        min={24}
+        max={96}
+        step={2}
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
+        className="w-64 accent-[var(--red-500)]"
+      />
+      <span className="w-14 text-sm font-semibold">{value}px</span>
+    </div>
+  );
+}
 
 type Props = {
   current: {
     logo_url: string | null;
     favicon_url: string | null;
     hero_url: string | null;
-    colors: Record<string, string>;
+    colors: Record<string, string | number>;
   };
   defaults: Record<string, string>;
 };
@@ -64,6 +83,15 @@ export function BrandingForm({ current, defaults }: Props) {
         </div>
       </section>
 
+      {/* Logo size */}
+      <section className="rounded-lg border border-border bg-surface p-6">
+        <h3 className="font-semibold">Logo size</h3>
+        <p className="mt-1 text-xs text-muted">
+          Height of the logo in the navigation bar.
+        </p>
+        <LogoSizeSlider initial={Number(current.colors.logoHeight) || 44} />
+      </section>
+
       {/* Colors */}
       <section className="rounded-lg border border-border bg-surface p-6">
         <div className="flex items-center justify-between">
@@ -85,7 +113,7 @@ export function BrandingForm({ current, defaults }: Props) {
               <input
                 type="color"
                 name={f.key}
-                defaultValue={current.colors[f.key] ?? defaults[f.key]}
+                defaultValue={String(current.colors[f.key] ?? defaults[f.key])}
                 className="h-10 w-12 cursor-pointer rounded border-0 bg-transparent"
               />
               <div>

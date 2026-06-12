@@ -7,6 +7,8 @@ export type SiteColors = {
   accent?: string;
   info?: string;
   muted?: string;
+  /** Nav logo height in px (24–96). Stored alongside colors in themes.colors. */
+  logoHeight?: number;
 };
 
 export type SiteTheme = {
@@ -25,6 +27,10 @@ export function sanitizeColors(colors: unknown): SiteColors {
     for (const key of ["background", "surface", "accent", "info", "muted"] as const) {
       const v = (colors as Record<string, unknown>)[key];
       if (typeof v === "string" && HEX.test(v)) out[key] = v;
+    }
+    const h = Number((colors as Record<string, unknown>).logoHeight);
+    if (Number.isFinite(h)) {
+      out.logoHeight = Math.min(96, Math.max(24, Math.round(h)));
     }
   }
   return out;

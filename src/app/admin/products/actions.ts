@@ -10,7 +10,7 @@ const IMAGE_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 20 * 1024 * 1024;
 
 export async function addProductImages(
   _prev: { ok: boolean; message: string } | null,

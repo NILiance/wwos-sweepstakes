@@ -11,9 +11,10 @@ const IMAGE_TYPES = new Set([
   "image/webp",
   "image/svg+xml",
   "image/x-icon",
+  "image/vnd.microsoft.icon",
   "image/gif",
 ]);
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 20 * 1024 * 1024;
 
 async function uploadAsset(
   file: File,
@@ -21,7 +22,7 @@ async function uploadAsset(
 ): Promise<string | null> {
   if (!file || file.size === 0) return null;
   if (!IMAGE_TYPES.has(file.type) || file.size > MAX_BYTES) {
-    throw new Error("Image must be PNG/JPG/WebP/SVG/ICO under 5 MB.");
+    throw new Error("Image must be PNG/JPG/WebP/SVG/ICO under 20 MB.");
   }
   const admin = createAdminClient();
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
@@ -59,6 +60,7 @@ export async function saveBranding(
       accent: formData.get("accent"),
       info: formData.get("info"),
       muted: formData.get("muted"),
+      logoHeight: formData.get("logoHeight"),
     });
 
     const [logoUrl, faviconUrl, heroUrl] = await Promise.all([
