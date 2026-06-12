@@ -99,12 +99,24 @@ export default async function ShowcasePage({
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm">
+            <p className="mt-4 flex flex-wrap gap-4 text-sm">
               <Link
                 href={`/s/${sw.slug}/scoring`}
                 className="font-semibold text-info hover:underline"
               >
-                How points work — full scoring guide →
+                How points work →
+              </Link>
+              <Link
+                href={`/s/${sw.slug}/standings`}
+                className="font-semibold text-info hover:underline"
+              >
+                Standings →
+              </Link>
+              <Link
+                href={`/s/${sw.slug}/board`}
+                className="font-semibold text-info hover:underline"
+              >
+                Smack talk →
               </Link>
             </p>
           </section>
@@ -187,9 +199,15 @@ export default async function ShowcasePage({
                   </p>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-muted">
-                  No purchase necessary to enter — see official rules for the
-                  free mail-in entry method. Mail-in entries don&apos;t include
-                  the product&apos;s offers.
+                  No purchase necessary to enter —{" "}
+                  <Link
+                    href={`/s/${sw.slug}/rules`}
+                    className="text-info hover:underline"
+                  >
+                    official rules
+                  </Link>{" "}
+                  include the free mail-in entry method. Mail-in entries
+                  don&apos;t include the product&apos;s offers.
                 </p>
               </>
             ) : (

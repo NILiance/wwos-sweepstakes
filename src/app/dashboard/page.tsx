@@ -58,7 +58,7 @@ export default async function DashboardPage() {
           {list.map((e) => (
             <Link
               key={e.id}
-              href={`/s/${e.sweepstakes.slug}`}
+              href={`/dashboard/entries/${e.id}`}
               className="group rounded-lg border border-border bg-surface p-6 transition hover:border-info"
             >
               <div className="flex items-center justify-between">
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
                 Entry: <span className="font-semibold">{e.display_name}</span>
               </p>
               <p className="mt-2 text-sm text-muted">
-                Awaiting draw — roster assigned when the pool fills.
+                Roster, points history & your watch list →
               </p>
             </Link>
           ))}
