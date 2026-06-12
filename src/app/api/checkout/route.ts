@@ -60,6 +60,7 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const session = await getStripe().checkout.sessions.create({
     mode: "payment",
+    ui_mode: "embedded_page",
     line_items: [
       {
         quantity: 1,
@@ -82,9 +83,8 @@ export async function POST(request: Request) {
     ...(product.requires_shipping
       ? { shipping_address_collection: { allowed_countries: ["US"] } }
       : {}),
-    success_url: `${origin}/s/${sw.slug}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/s/${sw.slug}`,
+    return_url: `${origin}/s/${sw.slug}/success?session_id={CHECKOUT_SESSION_ID}`,
   });
 
-  return NextResponse.json({ url: session.url });
+  return NextResponse.json({ clientSecret: session.client_secret });
 }
