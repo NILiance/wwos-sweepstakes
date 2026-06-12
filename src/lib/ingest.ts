@@ -67,7 +67,9 @@ export async function syncGames(league: League) {
   }
 
   let upserted = 0;
-  const rows = games.map((g) => {
+  // Dedupe within the batch — duplicate refs in one upsert chunk error out
+  const uniqueGames = [...new Map(games.map((g) => [g.externalRef, g])).values()];
+  const rows = uniqueGames.map((g) => {
     const home = g.homeKey ? byKey.get(g.homeKey.toLowerCase()) ?? null : null;
     const away = g.awayKey ? byKey.get(g.awayKey.toLowerCase()) ?? null : null;
     let winner: string | null = null;

@@ -87,7 +87,15 @@ export async function fetchSeasonGames(
       : `/${league}/scores/json/Games/${season}`;
   const data = await sdio<RawGame[]>(path);
   return data
-    .filter((g) => g["HomeTeam"] && g["AwayTeam"])
+    .filter(
+      (g) =>
+        g["HomeTeam"] &&
+        g["AwayTeam"] &&
+        // NFL schedules include bye-week placeholder rows with no game key
+        g["HomeTeam"] !== "BYE" &&
+        g["AwayTeam"] !== "BYE" &&
+        (g["GameKey"] ?? g["GameID"] ?? g["GlobalGameID"] ?? g["ScoreID"]) != null,
+    )
     .map((g) => ({
       externalRef: String(
         g["GameKey"] ?? g["GameID"] ?? g["GlobalGameID"] ?? g["ScoreID"],
