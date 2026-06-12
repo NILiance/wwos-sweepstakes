@@ -9,6 +9,7 @@ const SECTIONS = [
   ["products", "Products"],
   ["branding", "Branding"],
   ["simulator", "Simulator"],
+  ["dataops", "Data Ops"],
   ["users", "Users"],
 ] as const;
 
