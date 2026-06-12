@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Yellowtail } from "next/font/google";
 import Link from "next/link";
+import { AuthNav } from "@/components/auth-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,12 +58,7 @@ export default function RootLayout({
               >
                 My Entries
               </Link>
-              <Link
-                href="/dashboard"
-                className="rounded-md bg-accent px-4 py-2 font-semibold text-white hover:bg-accent-hover"
-              >
-                Sign In
-              </Link>
+              <AuthNav />
             </div>
           </nav>
         </header>
