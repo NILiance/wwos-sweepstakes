@@ -1,0 +1,83 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DrawControls } from "./draw-controls";
+
+export const metadata = { title: "Draw Control — Admin" };
+export const revalidate = 0;
+
+export default async function DrawControlPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const admin = createAdminClient();
+
+  const { data: sw } = await admin
+    .from("sweepstakes")
+    .select("id,name,slug,status,pool_size,entries(id)")
+    .eq("id", id)
+    .single();
+  if (!sw) notFound();
+
+  const { data: draw } = await admin
+    .from("draws")
+    .select("id,status,seed_hash,started_at,completed_at")
+    .eq("sweepstakes_id", id)
+    .neq("status", "voided")
+    .maybeSingle();
+
+  const { count: revealed } = draw
+    ? await admin
+        .from("draw_picks")
+        .select("id", { count: "exact", head: true })
+        .eq("draw_id", draw.id)
+        .not("revealed_at", "is", null)
+    : { count: 0 };
+  const { count: totalPicks } = draw
+    ? await admin
+        .from("draw_picks")
+        .select("id", { count: "exact", head: true })
+        .eq("draw_id", draw.id)
+    : { count: 0 };
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-lg font-bold">
+        Draw Control — {sw.name}{" "}
+        <span className="text-sm font-normal text-muted">({sw.status})</span>
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        {(sw.entries ?? []).length} entries ·{" "}
+        <Link href={`/s/${sw.slug}/draw`} className="text-info hover:underline">
+          public draw page →
+        </Link>
+      </p>
+
+      {draw && (
+        <div className="mt-4 rounded-md bg-surface-raised p-4 text-sm">
+          <p>
+            Draw <span className="font-mono text-xs">{draw.id}</span> —{" "}
+            <span className="font-semibold">{draw.status}</span>
+          </p>
+          <p className="mt-1 text-muted">
+            Fairness hash (published before reveal):{" "}
+            <span className="font-mono text-xs">{draw.seed_hash}</span>
+          </p>
+          <p className="mt-1">
+            Revealed {revealed ?? 0} of {totalPicks ?? 0}
+          </p>
+        </div>
+      )}
+
+      <DrawControls
+        sweepstakesId={sw.id}
+        hasDraw={!!draw}
+        drawStatus={draw?.status ?? null}
+        revealed={revealed ?? 0}
+        total={totalPicks ?? 0}
+      />
+    </div>
+  );
+}

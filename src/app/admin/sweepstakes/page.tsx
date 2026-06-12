@@ -94,6 +94,15 @@ export default async function AdminSweepstakes() {
               </div>
             )}
 
+            <div className="mt-4 flex items-center gap-4">
+              <Link
+                href={`/admin/draw/${p.id}`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-info hover:bg-surface-raised"
+              >
+                🎰 Draw Control
+              </Link>
+            </div>
+
             <details className="mt-4">
               <summary className="cursor-pointer text-sm font-medium text-info">
                 Add mail-in (AMOE) entry
