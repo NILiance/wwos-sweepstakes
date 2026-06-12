@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitizeColors } from "@/lib/theme";
 
@@ -46,7 +46,7 @@ export async function saveBranding(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const adminId = await requireAdmin();
+    const { userId: adminId } = await requireStaff("branding");
     const admin = createAdminClient();
 
     const logo = formData.get("logo") as File | null;
@@ -112,7 +112,7 @@ export async function saveBranding(
 }
 
 export async function resetColors(): Promise<void> {
-  await requireAdmin();
+  await requireStaff("branding");
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("themes")

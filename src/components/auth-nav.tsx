@@ -18,14 +18,26 @@ export async function AuthNav() {
     );
   }
 
+  // select(*) keeps this working before/after the role migration lands
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("*")
     .eq("id", user.id)
     .single();
 
+  const role = profile?.role ?? (profile?.is_admin ? "admin" : "user");
+  const isStaff = role === "admin" || role === "staff";
+
   return (
     <div className="flex items-center gap-4">
+      {isStaff && (
+        <Link
+          href="/admin"
+          className="rounded-full border border-info/50 bg-info/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-info hover:bg-info/20"
+        >
+          {role === "admin" ? "Admin" : "Staff"}
+        </Link>
+      )}
       <span className="text-sm text-muted">
         {profile?.display_name ?? user.email}
       </span>

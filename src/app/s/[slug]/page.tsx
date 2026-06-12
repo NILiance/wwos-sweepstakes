@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { usd, ordinal } from "@/lib/format";
 import { BuyButton } from "./buy-button";
+import { ProductGallery } from "./product-gallery";
 
 export const revalidate = 0;
 
@@ -17,7 +18,7 @@ export default async function ShowcasePage({
   const { data: sw } = await supabase
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active),entries(count)",
+      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images),entries(count)",
     )
     .eq("slug", slug)
     .single();
@@ -149,6 +150,14 @@ export default async function ShowcasePage({
             {product ? (
               <>
                 <h2 className="mt-2 text-xl font-bold">{product.name}</h2>
+                <ProductGallery
+                  images={
+                    Array.isArray(product.images)
+                      ? (product.images as string[])
+                      : []
+                  }
+                  name={product.name}
+                />
                 {product.description && (
                   <p className="mt-2 text-sm text-muted">
                     {product.description}

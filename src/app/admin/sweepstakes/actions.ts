@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const STATUSES = [
@@ -15,7 +15,7 @@ const STATUSES = [
 ] as const;
 
 export async function setStatus(formData: FormData): Promise<void> {
-  const adminId = await requireAdmin();
+  const { userId: adminId } = await requireStaff("sweepstakes");
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   if (!STATUSES.includes(status as (typeof STATUSES)[number])) return;
@@ -37,7 +37,7 @@ export async function addAmoeEntry(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const adminId = await requireAdmin();
+    const { userId: adminId } = await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
     const email = String(formData.get("email")).trim().toLowerCase();
     const displayName = String(formData.get("display_name")).trim();
