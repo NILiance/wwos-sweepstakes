@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Yellowtail } from "next/font/google";
 import Link from "next/link";
 import { AuthNav } from "@/components/auth-nav";
+import { getSiteTheme, themeCssOverrides } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,32 +22,51 @@ const script = Yellowtail({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Wide World of Sports Sweepstakes",
-  description:
-    "The best pool ever. One entry, a roster across CFB, NFL, NBA, NHL, CBB, golf and MLB — drawn live, scored all season.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const theme = await getSiteTheme();
+  return {
+    title: "Wide World of Sports Sweepstakes",
+    description:
+      "The best pool ever. One entry, a roster across college and pro football, basketball, hockey, golf and baseball — drawn live, scored all season.",
+    ...(theme?.favicon_url ? { icons: { icon: theme.favicon_url } } : {}),
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const theme = await getSiteTheme();
+  const cssOverrides = themeCssOverrides(theme?.colors ?? {});
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${script.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {cssOverrides && <style>{cssOverrides}</style>}
         <header className="border-b border-border bg-surface">
           <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-            <Link href="/" className="flex items-baseline gap-2">
-              <span className="brand-script text-3xl text-brand-red">
-                Sports
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-silver">
-                Wide World of · Sweepstakes
-              </span>
+            <Link href="/" className="flex items-center gap-3">
+              {theme?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={theme.logo_url}
+                  alt="Wide World of Sports Sweepstakes"
+                  className="h-11 w-auto"
+                />
+              ) : (
+                <span className="flex items-baseline gap-2">
+                  <span className="brand-script text-3xl text-brand-red">
+                    Sports
+                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-silver">
+                    Wide World of · Sweepstakes
+                  </span>
+                </span>
+              )}
             </Link>
             <div className="flex items-center gap-6 text-sm font-medium">
               <Link href="/browse" className="text-muted hover:text-foreground">
@@ -69,8 +89,8 @@ export default function RootLayout({
               © {new Date().getFullYear()} Wide World of Sports Sweepstakes.
             </p>
             <p>
-              Must be of legal age in your jurisdiction. See official rules per
-              sweepstakes.
+              Must be of legal age in your jurisdiction. No purchase necessary —
+              see official rules per sweepstakes.
             </p>
           </div>
         </footer>
