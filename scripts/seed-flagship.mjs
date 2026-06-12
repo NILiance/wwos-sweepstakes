@@ -119,13 +119,14 @@ if (!prodExisting.length) {
     [
       {
         sweepstakes_id: sweepstakesId,
-        name: "WWOS V Entry Cap",
+        name: "WWOS V Snapback + Offers Pack",
         description:
-          "Official WWOS V snapback. Your purchase claims one of 15 entries in the pool.",
+          "Official WWOS V snapback loaded with partner discount offers. Includes one bonus entry in the WWOS V pool.",
         price_cents: 100000,
         inventory: 15,
         requires_shipping: true,
         images: [],
+        offers: [],
         active: true,
       },
     ],

@@ -144,7 +144,7 @@ export default async function ShowcasePage({
         <div>
           <div className="sticky top-6 rounded-lg border border-border bg-surface p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-silver">
-              Entry
+              The Product
             </p>
             {product ? (
               <>
@@ -157,26 +157,35 @@ export default async function ShowcasePage({
                 <p className="mt-4 text-3xl font-extrabold">
                   {usd(product.price_cents)}
                 </p>
-                <p
-                  className={`mt-2 text-sm ${left <= 3 ? "font-semibold text-brand-red" : "text-muted"}`}
-                >
-                  {left > 0
-                    ? `${left} of ${sw.pool_size} spots remaining`
-                    : "Pool is full — join the waitlist"}
-                </p>
                 <BuyButton
                   sweepstakesId={sw.id}
                   productId={product.id}
                   disabled={left <= 0 || sw.status !== "enrolling"}
                 />
+                <div className="mt-4 rounded-md bg-surface-raised px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-info">
+                    Bonus included
+                  </p>
+                  <p className="mt-1 text-sm">
+                    One entry in this pool with your purchase.
+                  </p>
+                  <p
+                    className={`mt-1 text-xs ${left <= 3 ? "font-semibold text-brand-red" : "text-muted"}`}
+                  >
+                    {left > 0
+                      ? `${left} of ${sw.pool_size} spots remaining`
+                      : "Pool is full — join the waitlist"}
+                  </p>
+                </div>
                 <p className="mt-3 text-xs leading-5 text-muted">
-                  Purchase claims one entry. Split it with friends after
-                  checkout. See official rules for eligibility.
+                  No purchase necessary to enter — see official rules for the
+                  free mail-in entry method. Mail-in entries don&apos;t include
+                  the product&apos;s offers.
                 </p>
               </>
             ) : (
               <p className="mt-2 text-sm text-muted">
-                Entry item not yet announced.
+                Product not yet announced.
               </p>
             )}
           </div>

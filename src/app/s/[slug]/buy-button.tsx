@@ -44,7 +44,7 @@ export function BuyButton({
         disabled={disabled || busy}
         className="mt-5 w-full rounded-md bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Starting checkout…" : "Buy & Enter"}
+        {busy ? "Starting checkout…" : "Buy Now"}
       </button>
       {error && <p className="mt-2 text-sm text-brand-red">{error}</p>}
     </>

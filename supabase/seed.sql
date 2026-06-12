@@ -3,16 +3,18 @@
 -- scoring_rules rows with sweepstakes_id = null are platform defaults,
 -- cloned into each new sweepstakes by the setup wizard.
 
-insert into sports (id, name, team_label, sort_order) values
-  ('cfb',  'College Football',     'team',   1),
-  ('nfl',  'NFL',                  'team',   2),
-  ('cbb',  'College Basketball',   'team',   3),
-  ('nba',  'NBA',                  'team',   4),
-  ('wnba', 'WNBA',                 'team',   5),
-  ('nhl',  'NHL',                  'team',   6),
-  ('pga',  'PGA Tour',             'golfer', 7),
-  ('liv',  'LIV Golf',             'golfer', 8),
-  ('mlb',  'MLB',                  'team',   9);
+-- Public-facing names are generic — league marks are never customer-facing
+-- (SCOPE.md §2.4). Internal ids stay conventional. Requires 0004 (short_name).
+insert into sports (id, name, short_name, team_label, sort_order) values
+  ('cfb',  'College Football',        'College FB',  'team',   1),
+  ('nfl',  'Pro Football',            'Pro FB',      'team',   2),
+  ('cbb',  'College Basketball',      'College BB',  'team',   3),
+  ('nba',  'Pro Basketball',          'Pro BB',      'team',   4),
+  ('wnba', 'Women''s Pro Basketball', 'Women''s BB', 'team',   5),
+  ('nhl',  'Pro Hockey',              'Hockey',      'team',   6),
+  ('pga',  'Pro Golf — Tour',         'Golf',        'golfer', 7),
+  ('liv',  'Pro Golf — League',       'Golf League', 'golfer', 8),
+  ('mlb',  'Pro Baseball',            'Baseball',    'team',   9);
 
 -- Regular-season wins
 insert into scoring_rules (sweepstakes_id, sport_id, rule_key, label, points) values

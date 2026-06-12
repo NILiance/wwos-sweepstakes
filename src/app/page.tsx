@@ -1,24 +1,23 @@
 import Link from "next/link";
 
 const SPORTS = [
-  { abbrev: "CFB", picks: 4 },
-  { abbrev: "NFL", picks: 2 },
-  { abbrev: "CBB", picks: 4 },
-  { abbrev: "NBA", picks: 2 },
-  { abbrev: "NHL", picks: 2 },
-  { abbrev: "PGA", picks: 3 },
-  { abbrev: "LIV", picks: 1 },
-  { abbrev: "MLB", picks: 2 },
+  { abbrev: "College FB", picks: 4 },
+  { abbrev: "Pro FB", picks: 2 },
+  { abbrev: "College BB", picks: 4 },
+  { abbrev: "Pro BB", picks: 2 },
+  { abbrev: "Hockey", picks: 2 },
+  { abbrev: "Golf", picks: 4 },
+  { abbrev: "Baseball", picks: 2 },
 ];
 
 const STEPS = [
   {
-    title: "Buy in",
-    body: "Purchase the entry item to claim one of 15 spots. Split it with friends if you want.",
+    title: "Buy the product",
+    body: "Grab the offer-packed product — every purchase includes a bonus entry, one of 15 spots in the pool.",
   },
   {
     title: "Watch the draw",
-    body: "When the pool fills, a live random drawing assigns your teams — every pick revealed in real time.",
+    body: "When the pool fills, a live random drawing assigns your teams — every pick revealed in real time, equal odds for everyone.",
   },
   {
     title: "Score all season",

@@ -15,7 +15,11 @@ type Card = {
   pool_size: number;
   entry_price_cents: number;
   payout_structure: { place: number; amount_cents: number }[];
-  sweepstakes_sports: { sport_id: string; picks_per_entry: number }[];
+  sweepstakes_sports: {
+    sport_id: string;
+    picks_per_entry: number;
+    sports: { name: string; short_name: string | null };
+  }[];
   entries: { count: number }[];
 };
 
@@ -24,7 +28,7 @@ export default async function BrowsePage() {
   const { data } = await supabase
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,sweepstakes_sports(sport_id,picks_per_entry),entries(count)",
+      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,sweepstakes_sports(sport_id,picks_per_entry,sports(name,short_name)),entries(count)",
     )
     .eq("visibility", "public")
     .in("status", ["enrolling", "full", "drawing", "active"])
@@ -78,9 +82,10 @@ export default async function BrowsePage() {
                   {p.sweepstakes_sports?.map((s) => (
                     <span
                       key={s.sport_id}
-                      className="rounded-full bg-surface-raised px-2 py-0.5 text-xs font-semibold uppercase text-info"
+                      className="rounded-full bg-surface-raised px-2 py-0.5 text-xs font-semibold text-info"
                     >
-                      {s.sport_id} ×{s.picks_per_entry}
+                      {s.sports?.short_name ?? s.sports?.name ?? s.sport_id}{" "}
+                      ×{s.picks_per_entry}
                     </span>
                   ))}
                 </div>

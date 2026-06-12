@@ -18,17 +18,16 @@ The platform is **multi-tenant by design**: every parameter above is configurabl
 
 ---
 
-## 2. ⚠️ Legal & Compliance (read first)
+## 2. Legal & Compliance Structure
 
-This is the single biggest project risk and must be resolved **before** build decisions are locked:
+The product follows an established sweepstakes structure (model vetted and deemed compliant by **Fundraising University**, a franchised fundraising organization subject to franchise law). The platform must preserve this structure faithfully — these are **design requirements**:
 
-- A pay-to-enter pool with cash prizes is, in most U.S. states, a **lottery/gambling product** (consideration + chance + prize). The random team drawing makes this chance-based, not skill-based — the safe harbor that protects fantasy sports does not obviously apply.
-- The "purchase an item to enter" structure does **not** by itself convert this into a legal sweepstakes. U.S. sweepstakes law generally requires a free alternative method of entry ("No Purchase Necessary") and that the purchase not be consideration for the chance to win.
-- **Required before launch:** gaming/promotions attorney review; decision on legal structure (sweepstakes with AMOE, skill-contest restructure, private social-pool exemptions, or licensed operation); state-by-state eligibility map and geo-blocking; official rules document; age verification (18+/21+); tax reporting for winners (W-9 / 1099-MISC for prizes ≥ $600).
-- **Payment processing:** Stripe and most mainstream processors prohibit gambling on standard accounts. The merchandise-purchase framing must be cleared with the processor, or a high-risk/gaming processor used. This affects the commerce architecture, so it's a Phase 0 blocker.
-- **Trademarks:** team names/logos (NFL, NCAA, etc.) are licensed property. Plan to use city/school text abbreviations and original iconography, not official logos.
+1. **Product-led, entry as bonus.** The customer is purchasing the product for its own value — the product carries **discount offers**. The sweepstakes entry is a bonus and is **never the lead** in marketing, UI copy, or page hierarchy. The product and its offers are the hero of every purchase surface; the pool entry is presented as included.
+2. **Pure chance, equal odds.** Nothing is skill-based; all assignments are pre-determined random draws, so every entrant's odds are identical. No UI may imply skill, strategy, or paid advantage.
+3. **No-purchase entry (AMOE).** Every sweepstakes offers free entry: a written request with a SASE receives an entry (without the product's discount offers). The platform must (a) publish official rules + AMOE instructions on every sweepstakes page, and (b) let admin create AMOE entries that are indistinguishable from purchased entries in draws and standings.
+4. **No league IP.** Neither logos nor the words "NFL," "NCAA," etc. appear on products; descriptions say "based on professional football," "based on college basketball," and so on. Team displays use city/school abbreviations and original iconography only.
 
-The scope below assumes these questions get answered; nothing in the build prevents any of the candidate structures.
+Remaining operational diligence (to confirm during build, not blockers): the digital implementation preserves the same structure (online product sales, automated payouts), payment-processor category/disclosure for the product sale, state eligibility notes in the official rules, age requirement, and winner tax reporting (W-9 / 1099-MISC ≥ $600).
 
 ---
 
@@ -85,8 +84,9 @@ Every step has sensible defaults from the chosen template, so the minimum path i
 - "My Dashboard" home: all my entries at a glance — rank, total points, points this week, next draw/event.
 
 ### 4.3 Commerce & Enrollment
-- Product catalog (admin-managed): name, images, description, price, inventory, shipping required y/n.
-- **Product showcase page** per sweepstakes: branded storefront-style page presenting the entry item — image gallery, description, price, what entry includes (roster breakdown, payout table), spots-remaining counter, and a prominent **Buy & Enter** button straight into Stripe Checkout.
+- Product catalog (admin-managed): name, images, description, price, inventory, shipping required y/n, and the product's **discount offers** (the actual value proposition — e.g., local merchant discounts carried by the card/item).
+- **Product showcase page** per sweepstakes: branded storefront-style page that **leads with the product and its offers** (gallery, description, offer list, price). The sweepstakes entry appears as an included bonus — roster breakdown, payout table, spots-remaining — below/beside the product, never as the headline (Section 2 structure). Prominent **Buy Now** button into Stripe Checkout.
+- **AMOE entries**: official rules + mail-in (SASE) free-entry instructions linked on every sweepstakes page; admin console creates AMOE entries (`source: amoe`, no order, no offers) that participate identically in draws and standings.
 - **Purchase = entry**: Stripe Checkout for the configured item; successful payment (webhook-verified) creates the entry and decrements pool capacity. Shipping address collected when the item is physical.
 - **Split entries**: the purchaser becomes entry owner and can invite co-owners by email/link with defined split percentages (informational; payouts go to the owner unless admin overrides). Entry display name is customizable ("Dustin/JB").
 - Pool-fill mechanics: live "12 of 15 spots filled" indicator; waitlist once full; automatic refund flow if the pool doesn't fill by deadline (admin-triggered).
@@ -313,7 +313,7 @@ Recommended for v1 where marked; others are backlog candidates.
 
 ## 8. Open Questions
 
-1. **Legal structure** (Section 2) — blocking; determines payments and enrollment design.
+1. ~~Legal structure~~ → **resolved**: Fundraising University discount-offer model (Section 2) — product-led with offers, entry as bonus, SASE AMOE, no league IP. Remaining: confirm digital implementation details + processor category.
 2. Sports data provider & budget — golf + WNBA coverage narrows the list; needs a pricing pass.
 3. Split-entry payouts — single payee (owner) or platform splits to all share partners?
 4. Refund policy specifics — pool doesn't fill, entrant withdraws pre-draw, season cancellation.
