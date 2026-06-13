@@ -17,7 +17,11 @@ function parseConfig(formData: FormData) {
   const dollars = (key: string) =>
     Math.round(Number(formData.get(key) ?? 0) * 100);
 
-  const payout_structure = [1, 2, 3, 4]
+  const payoutCount = Math.min(
+    100,
+    Math.max(0, Number(formData.get("payout_count") ?? 4)),
+  );
+  const payout_structure = Array.from({ length: payoutCount }, (_, i) => i + 1)
     .map((p) => ({ place: p, amount_cents: dollars(`payout_${p}`) }))
     .filter((p) => p.amount_cents > 0);
 

@@ -1,7 +1,68 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createSweepstakes, updateSweepstakes } from "./actions";
+
+function ordinalLabel(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+function PayoutPlaces({
+  initial,
+}: {
+  initial: { place: number; amount_cents: number }[];
+}) {
+  const [amounts, setAmounts] = useState<string[]>(() => {
+    const sorted = [...initial].sort((a, b) => a.place - b.place);
+    const vals = sorted.map((p) => String(p.amount_cents / 100));
+    return vals.length ? vals : ["", "", "", ""];
+  });
+
+  return (
+    <div className="mt-2">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {amounts.map((amt, i) => (
+          <label key={i} className="text-xs text-muted">
+            <span className="flex items-center justify-between">
+              {ordinalLabel(i + 1)}
+              {amounts.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setAmounts(amounts.filter((_, j) => j !== i))}
+                  className="text-brand-red hover:underline"
+                  title="Remove this place"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+            <input
+              name={`payout_${i + 1}`}
+              type="number"
+              min={0}
+              step="0.01"
+              value={amt}
+              onChange={(e) =>
+                setAmounts(amounts.map((v, j) => (j === i ? e.target.value : v)))
+              }
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info"
+            />
+          </label>
+        ))}
+      </div>
+      <input type="hidden" name="payout_count" value={amounts.length} />
+      <button
+        type="button"
+        onClick={() => setAmounts([...amounts, ""])}
+        className="mt-2 text-sm font-semibold text-info hover:underline"
+      >
+        + Add payout place
+      </button>
+    </div>
+  );
+}
 
 const SPORTS: [string, string, number][] = [
   ["cfb", "College Football", 4],
@@ -44,9 +105,6 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
     isEdit ? updateSweepstakes : createSweepstakes,
     null,
   );
-  const payout = (p: number) =>
-    (values.payout_structure?.find((x) => x.place === p)?.amount_cents ?? 0) /
-      100 || "";
   const sportCfg = (id: string) =>
     values.sports?.find((s) => s.sport_id === id);
 
@@ -104,15 +162,13 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
             <input name="entry_price" type="number" min={0} step="0.01" defaultValue={(values.entry_price_cents ?? 100000) / 100} className={field} />
           </label>
         </div>
-        <p className="mt-4 text-sm font-semibold">Payouts ($)</p>
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[1, 2, 3, 4].map((p) => (
-            <label key={p} className="text-xs text-muted">
-              {p === 1 ? "1st" : p === 2 ? "2nd" : p === 3 ? "3rd" : "4th"}
-              <input name={`payout_${p}`} type="number" min={0} step="0.01" defaultValue={payout(p)} className={field} />
-            </label>
-          ))}
-        </div>
+        <p className="mt-4 text-sm font-semibold">
+          Payouts ($){" "}
+          <span className="text-xs font-normal text-muted">
+            — add as many paid places as you want
+          </span>
+        </p>
+        <PayoutPlaces initial={values.payout_structure ?? []} />
         <p className="mt-4 text-sm font-semibold">
           Side pots ($){" "}
           <span className="text-xs font-normal text-muted">— optional, leave 0 to skip</span>
