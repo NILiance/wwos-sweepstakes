@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ResetButton } from "./reset-button";
+import { DemoLoginButton } from "./demo-login-button";
 
 export const metadata = { title: "Draw Simulator — Admin" };
 export const revalidate = 0;
@@ -49,6 +50,7 @@ export default async function SimulatorPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <ResetButton label="Instant full preview" mode="preview" />
+              <DemoLoginButton />
               <ResetButton label="Reset (blank field)" />
             </div>
             <div className="mt-4 flex flex-wrap gap-4">

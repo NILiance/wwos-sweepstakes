@@ -171,6 +171,83 @@ export async function resetRehearsal() {
   return resetPool(REHEARSAL_SLUG, "Draw Rehearsal");
 }
 
+const DEMO_EMAIL = "demo-entrant@wwossweepstakes.com";
+
+/**
+ * One-click "view as entrant": signs this browser in as a sandbox demo user
+ * who owns the first simulator entry. (Signs you out of admin — sign back in
+ * afterward.)
+ */
+export async function demoLoginUrl(): Promise<{
+  ok: boolean;
+  url?: string;
+  message: string;
+}> {
+  try {
+    await requireStaff("simulator");
+    const admin = createAdminClient();
+
+    // Ensure the demo user exists
+    let demoId: string;
+    const { data: created, error: createErr } =
+      await admin.auth.admin.createUser({
+        email: DEMO_EMAIL,
+        email_confirm: true,
+        user_metadata: { display_name: "Demo Entrant" },
+      });
+    if (created?.user) {
+      demoId = created.user.id;
+    } else if (createErr?.message.toLowerCase().includes("already")) {
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = list?.users.find((u) => u.email === DEMO_EMAIL);
+      if (!existing) return { ok: false, message: "Demo user lookup failed." };
+      demoId = existing.id;
+    } else {
+      return { ok: false, message: createErr?.message ?? "Demo user failed." };
+    }
+
+    // Hand the demo user the first simulator entry (from the shared sim user)
+    const { data: sim } = await admin
+      .from("sweepstakes")
+      .select("id")
+      .eq("slug", SIM_SLUG)
+      .maybeSingle();
+    if (sim) {
+      const simUserId = await getSimUserId(admin);
+      const { data: first } = await admin
+        .from("entries")
+        .select("id,owner_user_id")
+        .eq("sweepstakes_id", sim.id)
+        .eq("status", "active")
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+      if (first && first.owner_user_id === simUserId) {
+        await admin
+          .from("entries")
+          .update({ owner_user_id: demoId })
+          .eq("id", first.id);
+      }
+    }
+
+    const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email: DEMO_EMAIL,
+    });
+    const token = link?.properties?.hashed_token;
+    if (linkErr || !token)
+      return { ok: false, message: linkErr?.message ?? "Link generation failed." };
+
+    return {
+      ok: true,
+      url: `/auth/confirm?token_hash=${token}&type=magiclink&next=/dashboard`,
+      message: "Switching to the demo entrant…",
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
 const CHATTER: [number, string][] = [
   [0, "Drew two playoff teams. It's over for the rest of you. 🏆"],
   [4, "Whoever invented random draws owes me a refund"],

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { poolStandings } from "@/lib/standings";
 import { usd, ordinal } from "@/lib/format";
+import { TrendChart } from "./trend-chart";
 
 export const revalidate = 0;
 
@@ -12,57 +13,6 @@ const LINE_COLORS = [
   "#d98880", "#85c1e9", "#f8c471", "#82e0aa", "#d2b4de",
 ];
 
-function TrendChart({
-  series,
-}: {
-  series: { name: string; points: number[]; color: string }[];
-}) {
-  const weeks = series[0]?.points.length ?? 0;
-  if (weeks < 2) return null;
-  const W = 640;
-  const H = 220;
-  const PAD = 24;
-  const max = Math.max(1, ...series.flatMap((s) => s.points));
-  const x = (i: number) => PAD + (i * (W - PAD * 2)) / (weeks - 1);
-  const y = (v: number) => H - PAD - (v * (H - PAD * 2)) / max;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label="Points by week">
-      {[0.25, 0.5, 0.75, 1].map((f) => (
-        <g key={f}>
-          <line x1={PAD} x2={W - PAD} y1={y(max * f)} y2={y(max * f)} stroke="currentColor" opacity={0.08} />
-          <text x={W - PAD + 2} y={y(max * f) + 3} fontSize={9} fill="currentColor" opacity={0.4}>
-            {Math.round(max * f)}
-          </text>
-        </g>
-      ))}
-      {series.map((s) => (
-        <polyline
-          key={s.name}
-          points={s.points.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
-          fill="none"
-          stroke={s.color}
-          strokeWidth={2}
-          strokeLinejoin="round"
-          opacity={0.9}
-        />
-      ))}
-      {series.slice(0, 3).map((s) => (
-        <text
-          key={s.name}
-          x={x(weeks - 1) - 4}
-          y={y(s.points[weeks - 1]) - 5}
-          fontSize={10}
-          fontWeight={700}
-          textAnchor="end"
-          fill={s.color}
-        >
-          {s.name}
-        </text>
-      ))}
-    </svg>
-  );
-}
 
 export default async function StandingsPage({
   params,
@@ -117,12 +67,18 @@ export default async function StandingsPage({
   // Trend series in current-rank order so colors match the table
   const colorOf = new Map(ranked.map((e, i) => [e.id, LINE_COLORS[i % LINE_COLORS.length]]));
   const series = ranked.map((e) => ({
+    id: e.id,
     name: e.name,
     color: colorOf.get(e.id)!,
     points: weekList.map(
       (w) =>
         (snaps ?? []).find((s) => s.entry_id === e.id && s.week === w)
           ?.total_points ?? 0,
+    ),
+    ranks: weekList.map(
+      (w) =>
+        (snaps ?? []).find((s) => s.entry_id === e.id && s.week === w)?.rank ??
+        ranked.length,
     ),
   }));
 
@@ -141,10 +97,7 @@ export default async function StandingsPage({
 
       {weekList.length >= 2 && (
         <div className="mt-6 rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Points by week
-          </p>
-          <TrendChart series={series} />
+          <TrendChart weeks={weekList} series={series} />
         </div>
       )}
 
