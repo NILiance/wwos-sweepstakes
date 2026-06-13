@@ -1,12 +1,12 @@
 import { requireAdmin } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AddUserForm, RoleEditor } from "./user-forms";
+import { AddUserForm, RoleEditor, UserActions } from "./user-forms";
 
 export const metadata = { title: "Users — Admin" };
 export const revalidate = 0;
 
 export default async function UsersPage() {
-  await requireAdmin();
+  const adminId = await requireAdmin();
   const admin = createAdminClient();
 
   const [{ data: profiles }, usersRes] = await Promise.all([
@@ -56,6 +56,12 @@ export default async function UsersPage() {
                 userId={p.id}
                 role={p.role ?? (p.is_admin ? "admin" : "user")}
                 permissions={Array.isArray(p.permissions) ? p.permissions : []}
+              />
+              <UserActions
+                userId={p.id}
+                email={emailById.get(p.id) ?? ""}
+                displayName={p.display_name}
+                isSelf={p.id === adminId}
               />
             </div>
           ))}

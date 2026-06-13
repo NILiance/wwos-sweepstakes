@@ -1,7 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { addUser, updateUserRole } from "./actions";
+import {
+  addUser,
+  updateUserRole,
+  setUserPassword,
+  resendInvite,
+  deleteUser,
+} from "./actions";
 
 const SECTIONS = [
   ["overview", "Overview"],
@@ -70,7 +76,17 @@ export function AddUserForm() {
           <option value="staff">Staff</option>
           <option value="admin">Admin</option>
         </select>
+        <input
+          name="password"
+          type="text"
+          placeholder="Password (optional)"
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
       </div>
+      <p className="text-xs text-muted">
+        Set a password to share directly, or leave it blank to email them a
+        sign-in invite.
+      </p>
       {role === "staff" && <PermissionChecks />}
       <button
         type="submit"
@@ -146,5 +162,92 @@ export function RoleEditor({
         </button>
       </div>
     </form>
+  );
+}
+
+export function UserActions({
+  userId,
+  email,
+  displayName,
+  isSelf,
+}: {
+  userId: string;
+  email: string;
+  displayName: string;
+  isSelf: boolean;
+}) {
+  const [pwState, pwAction, pwPending] = useActionState(setUserPassword, null);
+  const [invState, invAction, invPending] = useActionState(resendInvite, null);
+  const [delState, delAction, delPending] = useActionState(deleteUser, null);
+  const [showPw, setShowPw] = useState(false);
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <button
+          onClick={() => setShowPw(!showPw)}
+          className="text-info underline hover:text-foreground"
+        >
+          Set password
+        </button>
+        <form action={invAction} className="inline">
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="display_name" value={displayName} />
+          <button
+            disabled={invPending}
+            className="text-info underline hover:text-foreground disabled:opacity-50"
+          >
+            {invPending ? "Sending…" : "Resend invite"}
+          </button>
+        </form>
+        {!isSelf && (
+          <form
+            action={delAction}
+            className="inline"
+            onSubmit={(e) => {
+              if (!confirm(`Delete ${displayName}? This cannot be undone.`))
+                e.preventDefault();
+            }}
+          >
+            <input type="hidden" name="user_id" value={userId} />
+            <button
+              disabled={delPending}
+              className="text-brand-red underline hover:text-foreground disabled:opacity-50"
+            >
+              {delPending ? "Deleting…" : "Delete"}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {showPw && (
+        <form action={pwAction} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="user_id" value={userId} />
+          <input
+            name="password"
+            type="text"
+            placeholder="New password (min 8)"
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+          />
+          <button
+            disabled={pwPending}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+          >
+            {pwPending ? "Saving…" : "Save password"}
+          </button>
+        </form>
+      )}
+
+      {[pwState, invState, delState]
+        .filter(Boolean)
+        .map((s, i) => (
+          <p
+            key={i}
+            className={`text-xs ${s!.ok ? "text-info" : "text-brand-red"}`}
+          >
+            {s!.message}
+          </p>
+        ))}
+    </div>
   );
 }

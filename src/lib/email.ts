@@ -24,11 +24,13 @@ export async function sendEmail(
   subject: string,
   title: string,
   bodyHtml: string,
+  opts: { force?: boolean } = {},
 ): Promise<boolean> {
   try {
-    if (!process.env.RESEND_API_KEY || SKIP.some((re) => re.test(to))) {
-      return false;
-    }
+    if (!process.env.RESEND_API_KEY) return false;
+    // SKIP avoids spamming demo/test accounts during simulator runs; an
+    // explicit invite (force) always sends.
+    if (!opts.force && SKIP.some((re) => re.test(to))) return false;
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
