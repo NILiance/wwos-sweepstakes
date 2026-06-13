@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { poolStandings } from "@/lib/standings";
+import { resolvePayouts } from "@/lib/payouts";
 
 export async function generatePayouts(
   _prev: { ok: boolean; message: string } | null,
@@ -16,7 +17,7 @@ export async function generatePayouts(
 
     const { data: sw } = await admin
       .from("sweepstakes")
-      .select("id,name,payout_structure")
+      .select("id,name,payout_structure,pool_size,entry_price_cents")
       .eq("id", sweepstakesId)
       .single();
     if (!sw) return { ok: false, message: "Pool not found." };
@@ -29,10 +30,11 @@ export async function generatePayouts(
     if (existing?.length)
       return { ok: false, message: "Payouts already generated for this pool." };
 
-    const structure = (sw.payout_structure ?? []) as {
-      place: number;
-      amount_cents: number;
-    }[];
+    const pot = sw.pool_size * sw.entry_price_cents;
+    const structure = resolvePayouts(
+      (sw.payout_structure ?? []) as never,
+      pot,
+    );
     if (!structure.length)
       return { ok: false, message: "No payout structure configured." };
 

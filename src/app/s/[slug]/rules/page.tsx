@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usd, ordinal } from "@/lib/format";
 import { getSponsor, formatSponsorAddress } from "@/lib/settings";
+import { resolvePayouts } from "@/lib/payouts";
 
 export const revalidate = 0;
 
@@ -25,10 +26,10 @@ export default async function RulesPage({
     .single();
   if (!sw) notFound();
 
-  const payouts = (sw.payout_structure ?? []) as {
-    place: number;
-    amount_cents: number;
-  }[];
+  const payouts = resolvePayouts(
+    (sw.payout_structure ?? []) as never,
+    sw.pool_size * sw.entry_price_cents,
+  );
   const sports = (sw.sweepstakes_sports ?? []) as unknown as {
     picks_per_entry: number;
     sports: { name: string };

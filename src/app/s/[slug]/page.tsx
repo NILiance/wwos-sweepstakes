@@ -3,6 +3,7 @@ import { poolAccess } from "@/lib/pool-access";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { usd, ordinal } from "@/lib/format";
+import { resolvePayouts } from "@/lib/payouts";
 import { BuyButton } from "./buy-button";
 import { ProductGallery } from "./product-gallery";
 import { WaitlistButton } from "./waitlist-button";
@@ -46,10 +47,10 @@ export default async function ShowcasePage({
   const left = sw.pool_size - taken;
   const totalPicks = sports.reduce((n, s) => n + s.picks_per_entry, 0);
   const pot = sw.pool_size * sw.entry_price_cents;
-  const payouts = (sw.payout_structure ?? []) as {
-    place: number;
-    amount_cents: number;
-  }[];
+  const payouts = resolvePayouts(
+    (sw.payout_structure ?? []) as never,
+    pot,
+  );
   const regularBySport = new Map(
     (rules ?? []).map((r) => [r.sport_id, r.points]),
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { usd } from "@/lib/format";
+import { resolvePayouts, type PayoutEntry } from "@/lib/payouts";
 
 export const metadata = { title: "Browse Pools — WWOS Sweepstakes" };
 export const revalidate = 0;
@@ -14,7 +15,7 @@ type Card = {
   status: string;
   pool_size: number;
   entry_price_cents: number;
-  payout_structure: { place: number; amount_cents: number }[];
+  payout_structure: PayoutEntry[];
   sweepstakes_sports: {
     sport_id: string;
     picks_per_entry: number;
@@ -52,7 +53,10 @@ export default async function BrowsePage() {
           {pools.map((p) => {
             const taken = p.entries?.[0]?.count ?? 0;
             const left = p.pool_size - taken;
-            const top = p.payout_structure?.find((x) => x.place === 1);
+            const top = resolvePayouts(
+              p.payout_structure ?? [],
+              p.pool_size * p.entry_price_cents,
+            ).find((x) => x.place === 1);
             return (
               <Link
                 key={p.id}

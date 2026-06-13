@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { poolStandings } from "@/lib/standings";
 import { usd, ordinal } from "@/lib/format";
+import { resolvePayouts } from "@/lib/payouts";
 import { TrendChart } from "./trend-chart";
 
 export const revalidate = 0;
@@ -26,7 +27,7 @@ export default async function StandingsPage({
 
   const { data: sw } = await admin
     .from("sweepstakes")
-    .select("id,name,slug,status,payout_structure")
+    .select("id,name,slug,status,payout_structure,pool_size,entry_price_cents")
     .eq("slug", slug)
     .single();
   if (!sw) notFound();
@@ -84,10 +85,10 @@ export default async function StandingsPage({
     ),
   }));
 
-  const payouts = (sw.payout_structure ?? []) as {
-    place: number;
-    amount_cents: number;
-  }[];
+  const payouts = resolvePayouts(
+    (sw.payout_structure ?? []) as never,
+    sw.pool_size * sw.entry_price_cents,
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">

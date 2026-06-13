@@ -9,57 +9,126 @@ function ordinalLabel(n: number): string {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
+type PlaceRow = { type: "flat" | "percent"; value: string };
+
+function usd(cents: number) {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
 function PayoutPlaces({
   initial,
+  potCents,
+  sidePotCents,
 }: {
-  initial: { place: number; amount_cents: number }[];
+  initial: { place: number; type?: string; amount_cents?: number; percent?: number }[];
+  potCents: number;
+  sidePotCents: number;
 }) {
-  const [amounts, setAmounts] = useState<string[]>(() => {
+  const [rows, setRows] = useState<PlaceRow[]>(() => {
     const sorted = [...initial].sort((a, b) => a.place - b.place);
-    const vals = sorted.map((p) => String(p.amount_cents / 100));
-    return vals.length ? vals : ["", "", "", ""];
+    const mapped = sorted.map((p) =>
+      p.type === "percent"
+        ? { type: "percent" as const, value: String(p.percent ?? "") }
+        : { type: "flat" as const, value: String((p.amount_cents ?? 0) / 100) },
+    );
+    return mapped.length
+      ? mapped
+      : [
+          { type: "flat", value: "" },
+          { type: "flat", value: "" },
+          { type: "flat", value: "" },
+          { type: "flat", value: "" },
+        ];
   });
+
+  const set = (i: number, patch: Partial<PlaceRow>) =>
+    setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  const placeCents = rows.reduce((n, r) => {
+    const v = Number(r.value) || 0;
+    return n + (r.type === "percent" ? Math.round((v / 100) * potCents) : Math.round(v * 100));
+  }, 0);
+  const totalCents = placeCents + sidePotCents;
+  const over = totalCents > potCents;
 
   return (
     <div className="mt-2">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {amounts.map((amt, i) => (
-          <label key={i} className="text-xs text-muted">
-            <span className="flex items-center justify-between">
-              {ordinalLabel(i + 1)}
-              {amounts.length > 1 && (
+      <div className="space-y-2">
+        {rows.map((r, i) => {
+          const resolved =
+            r.type === "percent"
+              ? Math.round(((Number(r.value) || 0) / 100) * potCents)
+              : Math.round((Number(r.value) || 0) * 100);
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-10 text-xs text-muted">{ordinalLabel(i + 1)}</span>
+              <select
+                value={r.type}
+                onChange={(e) => set(i, { type: e.target.value as "flat" | "percent" })}
+                className="rounded-md border border-border bg-background px-2 py-2 text-sm"
+              >
+                <option value="flat">$ flat</option>
+                <option value="percent">% of pot</option>
+              </select>
+              <input
+                type="number"
+                min={0}
+                step={r.type === "percent" ? "0.5" : "0.01"}
+                value={r.value}
+                onChange={(e) => set(i, { value: e.target.value })}
+                className="w-28 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info"
+              />
+              {r.type === "percent" && (
+                <span className="text-xs text-muted">= {usd(resolved)}</span>
+              )}
+              {/* persisted fields the action reads */}
+              <input type="hidden" name={`payout_type_${i + 1}`} value={r.type} />
+              <input type="hidden" name={`payout_${i + 1}`} value={r.value} />
+              {rows.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setAmounts(amounts.filter((_, j) => j !== i))}
+                  onClick={() => setRows(rows.filter((_, j) => j !== i))}
                   className="text-brand-red hover:underline"
                   title="Remove this place"
                 >
                   ✕
                 </button>
               )}
-            </span>
-            <input
-              name={`payout_${i + 1}`}
-              type="number"
-              min={0}
-              step="0.01"
-              value={amt}
-              onChange={(e) =>
-                setAmounts(amounts.map((v, j) => (j === i ? e.target.value : v)))
-              }
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info"
-            />
-          </label>
-        ))}
+            </div>
+          );
+        })}
       </div>
-      <input type="hidden" name="payout_count" value={amounts.length} />
+      <input type="hidden" name="payout_count" value={rows.length} />
       <button
         type="button"
-        onClick={() => setAmounts([...amounts, ""])}
+        onClick={() => setRows([...rows, { type: "flat", value: "" }])}
         className="mt-2 text-sm font-semibold text-info hover:underline"
       >
         + Add payout place
       </button>
+
+      <div className="mt-3 rounded-md bg-surface-raised px-4 py-2 text-sm">
+        Pot: <span className="font-semibold">{usd(potCents)}</span> · Payouts:{" "}
+        <span className="font-semibold">{usd(totalCents)}</span>
+        {sidePotCents > 0 && (
+          <span className="text-muted"> (incl. side pots)</span>
+        )}
+        {over ? (
+          <p className="mt-1 font-semibold text-brand-red">
+            ⚠ Payouts exceed the pot by {usd(totalCents - potCents)}. The sponsor
+            covers the difference, or trim the payouts.
+          </p>
+        ) : (
+          <p className="mt-1 text-muted">
+            {usd(potCents - totalCents)} of the pot remains
+            {sidePotCents === 0 ? " (before side pots)" : ""}.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -85,7 +154,12 @@ export type SweepstakesFormValues = {
   visibility?: string;
   pool_size?: number;
   entry_price_cents?: number;
-  payout_structure?: { place: number; amount_cents: number }[];
+  payout_structure?: {
+    place: number;
+    type?: string;
+    amount_cents?: number;
+    percent?: number;
+  }[];
   side_pots?: { type: string; amount_cents: number }[];
   sports?: { sport_id: string; picks_per_entry: number }[];
 };
@@ -107,6 +181,24 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
   );
   const sportCfg = (id: string) =>
     values.sports?.find((s) => s.sport_id === id);
+
+  const [poolSize, setPoolSize] = useState(values.pool_size ?? 15);
+  const [entryPrice, setEntryPrice] = useState(
+    (values.entry_price_cents ?? 100000) / 100,
+  );
+  const [sidePots, setSidePots] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const [, type] of SIDE_POTS) {
+      const v = values.side_pots?.find((s) => s.type === type)?.amount_cents;
+      out[type] = v ? String(v / 100) : "";
+    }
+    return out;
+  });
+  const potCents = Math.round((Number(poolSize) || 0) * (Number(entryPrice) || 0) * 100);
+  const sidePotCents = Object.values(sidePots).reduce(
+    (n, v) => n + Math.round((Number(v) || 0) * 100),
+    0,
+  );
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
@@ -155,20 +247,39 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           <label className="text-sm font-medium">
             Pool size
-            <input name="pool_size" type="number" min={2} defaultValue={values.pool_size ?? 15} className={field} />
+            <input
+              name="pool_size"
+              type="number"
+              min={2}
+              value={poolSize}
+              onChange={(e) => setPoolSize(Number(e.target.value))}
+              className={field}
+            />
           </label>
           <label className="text-sm font-medium">
             Entry price ($)
-            <input name="entry_price" type="number" min={0} step="0.01" defaultValue={(values.entry_price_cents ?? 100000) / 100} className={field} />
+            <input
+              name="entry_price"
+              type="number"
+              min={0}
+              step="0.01"
+              value={entryPrice}
+              onChange={(e) => setEntryPrice(Number(e.target.value))}
+              className={field}
+            />
           </label>
         </div>
         <p className="mt-4 text-sm font-semibold">
-          Payouts ($){" "}
+          Payouts{" "}
           <span className="text-xs font-normal text-muted">
-            — add as many paid places as you want
+            — flat $ or % of pot, as many places as you want
           </span>
         </p>
-        <PayoutPlaces initial={values.payout_structure ?? []} />
+        <PayoutPlaces
+          initial={values.payout_structure ?? []}
+          potCents={potCents}
+          sidePotCents={sidePotCents}
+        />
         <p className="mt-4 text-sm font-semibold">
           Side pots ($){" "}
           <span className="text-xs font-normal text-muted">— optional, leave 0 to skip</span>
@@ -182,8 +293,9 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
                 type="number"
                 min={0}
                 step="0.01"
-                defaultValue={
-                  (values.side_pots?.find((s) => s.type === type)?.amount_cents ?? 0) / 100 || ""
+                value={sidePots[type] ?? ""}
+                onChange={(e) =>
+                  setSidePots({ ...sidePots, [type]: e.target.value })
                 }
                 className={field}
               />

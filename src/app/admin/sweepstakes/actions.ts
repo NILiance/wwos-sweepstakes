@@ -22,8 +22,16 @@ function parseConfig(formData: FormData) {
     Math.max(0, Number(formData.get("payout_count") ?? 4)),
   );
   const payout_structure = Array.from({ length: payoutCount }, (_, i) => i + 1)
-    .map((p) => ({ place: p, amount_cents: dollars(`payout_${p}`) }))
-    .filter((p) => p.amount_cents > 0);
+    .map((p) => {
+      const type = formData.get(`payout_type_${p}`) === "percent" ? "percent" : "flat";
+      const raw = Number(formData.get(`payout_${p}`) ?? 0);
+      return type === "percent"
+        ? { place: p, type, percent: raw }
+        : { place: p, type, amount_cents: Math.round(raw * 100) };
+    })
+    .filter((p) =>
+      p.type === "percent" ? (p.percent ?? 0) > 0 : (p.amount_cents ?? 0) > 0,
+    );
 
   const side_pots = [
     ["lowest_score", "sidepot_lowest"],
