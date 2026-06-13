@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { poolAccess } from "@/lib/pool-access";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { entryTotals } from "@/lib/standings";
@@ -11,6 +12,7 @@ export default async function PoolEntryPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
+  if (!(await poolAccess(slug)).allowed) return null;
   const admin = createAdminClient();
 
   const { data: entry } = await admin

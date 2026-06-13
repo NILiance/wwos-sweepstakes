@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { poolAccess } from "@/lib/pool-access";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +13,7 @@ export default async function BoardPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  if (!(await poolAccess(slug)).allowed) return null;
   const supabase = await createClient();
   const {
     data: { user },

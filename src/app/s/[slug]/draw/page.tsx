@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { poolAccess } from "@/lib/pool-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DrawBoard } from "./draw-board";
 
@@ -10,6 +11,7 @@ export default async function DrawPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  if (!(await poolAccess(slug)).allowed) return null;
   const admin = createAdminClient();
 
   const { data: sw } = await admin
