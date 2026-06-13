@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/admin-guard";
+import { requireLeagueAccess } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -16,8 +16,8 @@ export async function saveSportPool(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
     const sport = String(formData.get("sport_id"));
     const lines = String(formData.get("list") ?? "")
       .split(/\r?\n/)

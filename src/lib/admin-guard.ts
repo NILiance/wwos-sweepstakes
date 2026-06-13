@@ -67,3 +67,72 @@ export async function requireAdmin(): Promise<string> {
   if (ctx.role !== "admin") redirect("/admin");
   return ctx.userId;
 }
+
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/** Commissioner area gate. Returns user id + subscription status. */
+export async function requireCommissioner(): Promise<{
+  userId: string;
+  active: boolean;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/commissioner");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role,is_admin")
+    .eq("id", user.id)
+    .single();
+  const role = profile?.role ?? (profile?.is_admin ? "admin" : "user");
+
+  // Admins always allowed
+  if (role === "admin") return { userId: user.id, active: true };
+  if (role !== "commissioner") redirect("/commissioner/join");
+
+  const admin = createAdminClient();
+  const { data: sub } = await admin
+    .from("commissioner_subscriptions")
+    .select("status,paid_through")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const active =
+    sub?.status === "active" &&
+    (!sub.paid_through || new Date(sub.paid_through) > new Date());
+  return { userId: user.id, active };
+}
+
+/**
+ * Allow management of one league: platform admin, staff with the sweepstakes
+ * permission, or the commissioner who created it. Returns the user id.
+ */
+export async function requireLeagueAccess(
+  sweepstakesId: string,
+): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role,is_admin,permissions")
+    .eq("id", user.id)
+    .single();
+  const role = profile?.role ?? (profile?.is_admin ? "admin" : "user");
+  if (role === "admin") return user.id;
+  const perms = Array.isArray(profile?.permissions) ? profile!.permissions : [];
+  if (role === "staff" && perms.includes("sweepstakes")) return user.id;
+
+  const admin = createAdminClient();
+  const { data: sw } = await admin
+    .from("sweepstakes")
+    .select("created_by")
+    .eq("id", sweepstakesId)
+    .single();
+  if (sw?.created_by === user.id) return user.id;
+  redirect("/");
+}

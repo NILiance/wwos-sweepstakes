@@ -2,67 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/admin-guard";
+import { requireStaff, requireLeagueAccess } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const SPORT_IDS = ["cfb", "nfl", "cbb", "nba", "wnba", "nhl", "pga", "liv", "mlb"];
-
-function parseConfig(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
-  let slug = String(formData.get("slug") ?? "").trim().toLowerCase();
-  if (!slug) slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  if (!/^[a-z0-9-]{2,}$/.test(slug)) throw new Error("Slug must be letters/numbers/dashes.");
-
-  const dollars = (key: string) =>
-    Math.round(Number(formData.get(key) ?? 0) * 100);
-
-  const payoutCount = Math.min(
-    100,
-    Math.max(0, Number(formData.get("payout_count") ?? 4)),
-  );
-  const payout_structure = Array.from({ length: payoutCount }, (_, i) => i + 1)
-    .map((p) => {
-      const type = formData.get(`payout_type_${p}`) === "percent" ? "percent" : "flat";
-      const raw = Number(formData.get(`payout_${p}`) ?? 0);
-      return type === "percent"
-        ? { place: p, type, percent: raw }
-        : { place: p, type, amount_cents: Math.round(raw * 100) };
-    })
-    .filter((p) =>
-      p.type === "percent" ? (p.percent ?? 0) > 0 : (p.amount_cents ?? 0) > 0,
-    );
-
-  const side_pots = [
-    ["lowest_score", "sidepot_lowest"],
-    ["weekly_high", "sidepot_weekly"],
-    ["top_team", "sidepot_topteam"],
-  ]
-    .map(([type, field]) => ({ type, amount_cents: dollars(field) }))
-    .filter((p) => p.amount_cents > 0);
-
-  const sports = SPORT_IDS.filter((s) => formData.get(`sport_${s}`)).map(
-    (s) => ({
-      sport_id: s,
-      picks_per_entry: Math.max(1, Number(formData.get(`picks_${s}`) ?? 1)),
-      pool_source: "all" as const,
-    }),
-  );
-  if (!sports.length) throw new Error("Pick at least one sport.");
-
-  return {
-    name,
-    slug,
-    description: String(formData.get("description") ?? "").trim() || null,
-    season_label: String(formData.get("season_label") ?? "").trim() || null,
-    visibility: formData.get("visibility") === "private" ? "private" : "public",
-    pool_size: Math.max(2, Number(formData.get("pool_size") ?? 15)),
-    entry_price_cents: dollars("entry_price"),
-    payout_structure,
-    side_pots,
-    sports,
-  };
-}
+import { parseConfig } from "@/lib/sweepstakes-config";
 
 export async function createSweepstakes(
   _prev: { ok: boolean; message: string } | null,
@@ -138,8 +80,8 @@ export async function updateSweepstakes(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const { userId } = await requireStaff("sweepstakes");
     const id = String(formData.get("id"));
+    const userId = await requireLeagueAccess(id);
     const cfg = parseConfig(formData);
     const admin = createAdminClient();
 
@@ -208,8 +150,8 @@ export async function addProduct(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return { ok: false, message: "Product name required." };
 
@@ -238,8 +180,8 @@ export async function cloneProduct(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
     const sourceId = String(formData.get("source_product_id"));
     if (!sourceId) return { ok: false, message: "Pick a product to copy." };
 
@@ -270,7 +212,8 @@ export async function openNextSeasonAction(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const { userId } = await requireStaff("sweepstakes");
+    const priorId = String(formData.get("prior_id"));
+    const userId = await requireLeagueAccess(priorId);
     const { openNextSeason } = await import("@/lib/renewals");
     const name = String(formData.get("name") ?? "").trim();
     let slug = String(formData.get("slug") ?? "").trim().toLowerCase();
@@ -281,7 +224,7 @@ export async function openNextSeasonAction(
       return { ok: false, message: "Name and renewal deadline required." };
 
     const result = await openNextSeason({
-      priorSweepstakesId: String(formData.get("prior_id")),
+      priorSweepstakesId: priorId,
       name,
       slug,
       seasonLabel: String(formData.get("season_label") ?? "").trim() || null,
@@ -303,7 +246,6 @@ export async function refundEntry(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const { userId } = await requireStaff("sweepstakes");
     const entryId = String(formData.get("entry_id"));
     const admin = createAdminClient();
 
@@ -313,6 +255,7 @@ export async function refundEntry(
       .eq("id", entryId)
       .single();
     if (!entry) return { ok: false, message: "Entry not found." };
+    const userId = await requireLeagueAccess(entry.sweepstakes_id);
     if (entry.status !== "active")
       return { ok: false, message: "Entry is not active." };
 
@@ -396,18 +339,24 @@ export async function refundEntry(
 }
 
 export async function toggleProductActive(formData: FormData): Promise<void> {
-  await requireStaff("sweepstakes");
   const id = String(formData.get("product_id"));
-  const active = formData.get("active") === "true";
   const admin = createAdminClient();
+  const { data: prod } = await admin
+    .from("products")
+    .select("sweepstakes_id")
+    .eq("id", id)
+    .single();
+  if (!prod) return;
+  await requireLeagueAccess(prod.sweepstakes_id);
+  const active = formData.get("active") === "true";
   await admin.from("products").update({ active }).eq("id", id);
   revalidatePath("/admin/sweepstakes");
   revalidatePath("/admin/products");
 }
 
 export async function setStatus(formData: FormData): Promise<void> {
-  const { userId: adminId } = await requireStaff("sweepstakes");
   const id = String(formData.get("id"));
+  const adminId = await requireLeagueAccess(id);
   const status = String(formData.get("status"));
   if (!STATUSES.includes(status as (typeof STATUSES)[number])) return;
 
@@ -428,8 +377,8 @@ export async function addAmoeEntry(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const { userId: adminId } = await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
+    const adminId = await requireLeagueAccess(sweepstakesId);
     const email = String(formData.get("email")).trim().toLowerCase();
     const displayName = String(formData.get("display_name")).trim();
     if (!email || !displayName) {

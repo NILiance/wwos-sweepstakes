@@ -173,10 +173,21 @@ const SIDE_POTS: [string, string, string][] = [
 const field =
   "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info";
 
-export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
+type FormAction = (
+  prev: { ok: boolean; message: string } | null,
+  fd: FormData,
+) => Promise<{ ok: boolean; message: string }>;
+
+export function SweepstakesForm({
+  values,
+  createAction,
+}: {
+  values: SweepstakesFormValues;
+  createAction?: FormAction;
+}) {
   const isEdit = !!values.id;
   const [state, formAction, pending] = useActionState(
-    isEdit ? updateSweepstakes : createSweepstakes,
+    isEdit ? updateSweepstakes : (createAction ?? createSweepstakes),
     null,
   );
   const sportCfg = (id: string) =>

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/admin-guard";
+import { requireLeagueAccess } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -15,8 +15,8 @@ export async function saveScoringMatrix(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    await requireStaff("sweepstakes");
     const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
     const admin = createAdminClient();
 
     // Platform defaults to compare against

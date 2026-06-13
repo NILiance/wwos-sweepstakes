@@ -25,6 +25,7 @@ export function SubNav({
     : [
         [base, "Pool"],
         [`${base}/standings`, "Standings"],
+        [`${base}/scorecard`, "Scorecard"],
         [`${base}/draw`, "The Draw"],
         [`${base}/board`, "Smack Talk"],
         [`${base}/scoring`, "Scoring"],

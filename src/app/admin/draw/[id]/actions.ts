@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/admin-guard";
+import { requireLeagueAccess } from "@/lib/admin-guard";
 import { runDraw, revealNextPick } from "@/lib/draw";
 
 export async function startDraw(
   sweepstakesId: string,
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    await requireStaff("sweepstakes");
+    await requireLeagueAccess(sweepstakesId);
     const { totalPicks } = await runDraw(sweepstakesId);
     revalidatePath(`/admin/draw/${sweepstakesId}`);
     return { ok: true, message: `Draw prepared — ${totalPicks} picks queued.` };
@@ -23,7 +23,7 @@ export async function startDraw(
 export async function revealNext(
   sweepstakesId: string,
 ): Promise<{ done: boolean }> {
-  await requireStaff("sweepstakes");
+  await requireLeagueAccess(sweepstakesId);
   const result = await revealNextPick(sweepstakesId);
   return { done: result.done };
 }

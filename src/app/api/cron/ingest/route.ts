@@ -34,5 +34,15 @@ export async function GET(request: Request) {
     }
   }
 
+  // Daily commissioner renewal notices (or force with ?renewals=1)
+  try {
+    const { sendRenewalNotices } = await import("@/lib/commissioner");
+    (results as Record<string, unknown>).renewals = await sendRenewalNotices();
+  } catch (err) {
+    (results as Record<string, unknown>).renewals = {
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
   return NextResponse.json({ ok: true, results });
 }
