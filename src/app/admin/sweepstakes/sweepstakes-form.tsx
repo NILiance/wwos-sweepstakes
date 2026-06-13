@@ -25,8 +25,15 @@ export type SweepstakesFormValues = {
   pool_size?: number;
   entry_price_cents?: number;
   payout_structure?: { place: number; amount_cents: number }[];
+  side_pots?: { type: string; amount_cents: number }[];
   sports?: { sport_id: string; picks_per_entry: number }[];
 };
+
+const SIDE_POTS: [string, string, string][] = [
+  ["sidepot_lowest", "lowest_score", "Lowest season score"],
+  ["sidepot_weekly", "weekly_high", "Best single week"],
+  ["sidepot_topteam", "top_team", "Highest-scoring team"],
+];
 
 const field =
   "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info";
@@ -94,6 +101,27 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
             <label key={p} className="text-xs text-muted">
               {p === 1 ? "1st" : p === 2 ? "2nd" : p === 3 ? "3rd" : "4th"}
               <input name={`payout_${p}`} type="number" min={0} step="0.01" defaultValue={payout(p)} className={field} />
+            </label>
+          ))}
+        </div>
+        <p className="mt-4 text-sm font-semibold">
+          Side pots ($){" "}
+          <span className="text-xs font-normal text-muted">— optional, leave 0 to skip</span>
+        </p>
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {SIDE_POTS.map(([fieldName, type, label]) => (
+            <label key={type} className="text-xs text-muted">
+              {label}
+              <input
+                name={fieldName}
+                type="number"
+                min={0}
+                step="0.01"
+                defaultValue={
+                  (values.side_pots?.find((s) => s.type === type)?.amount_cents ?? 0) / 100 || ""
+                }
+                className={field}
+              />
             </label>
           ))}
         </div>

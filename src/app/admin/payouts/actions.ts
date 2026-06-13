@@ -42,12 +42,82 @@ export async function generatePayouts(
       .map((p) => ({
         sweepstakes_id: sweepstakesId,
         pot_type: "place",
-        place: p.place,
+        place: p.place as number | null,
         entry_id: ranked[p.place - 1].id,
         amount_cents: p.amount_cents,
         status: "pending",
         tax_doc_status: p.amount_cents >= 60000 ? "requested" : "not_required",
       }));
+
+    // Side pots
+    const { data: swPots } = await admin
+      .from("sweepstakes")
+      .select("side_pots")
+      .eq("id", sweepstakesId)
+      .single();
+    const sidePots = (swPots?.side_pots ?? []) as {
+      type: string;
+      amount_cents: number;
+    }[];
+    for (const pot of sidePots) {
+      let winnerEntry: string | null = null;
+      if (pot.type === "lowest_score" && ranked.length) {
+        winnerEntry = ranked[ranked.length - 1].id;
+      } else if (pot.type === "weekly_high") {
+        const { data: snaps } = await admin
+          .from("standings_snapshots")
+          .select("entry_id,week,total_points")
+          .eq("sweepstakes_id", sweepstakesId)
+          .order("week");
+        const weeks = [...new Set((snaps ?? []).map((s) => s.week))];
+        let best = -1;
+        for (const e of ranked) {
+          for (let i = 1; i < weeks.length; i++) {
+            const cur = snaps?.find((s) => s.entry_id === e.id && s.week === weeks[i])?.total_points ?? 0;
+            const prev = snaps?.find((s) => s.entry_id === e.id && s.week === weeks[i - 1])?.total_points ?? 0;
+            if (cur - prev > best) {
+              best = cur - prev;
+              winnerEntry = e.id;
+            }
+          }
+        }
+      } else if (pot.type === "top_team") {
+        const teamSums = new Map<string, { entry: string; pts: number }>();
+        for (let from = 0; ; from += 1000) {
+          const { data } = await admin
+            .from("point_events")
+            .select("entry_id,team_id,points")
+            .in("entry_id", ranked.map((r) => r.id))
+            .range(from, from + 999);
+          if (!data?.length) break;
+          for (const ev of data) {
+            const key = `${ev.entry_id}:${ev.team_id}`;
+            const cur = teamSums.get(key) ?? { entry: ev.entry_id, pts: 0 };
+            cur.pts += ev.points;
+            teamSums.set(key, cur);
+          }
+          if (data.length < 1000) break;
+        }
+        let best = -1;
+        for (const v of teamSums.values()) {
+          if (v.pts > best) {
+            best = v.pts;
+            winnerEntry = v.entry;
+          }
+        }
+      }
+      if (winnerEntry) {
+        rows.push({
+          sweepstakes_id: sweepstakesId,
+          pot_type: pot.type,
+          place: null,
+          entry_id: winnerEntry,
+          amount_cents: pot.amount_cents,
+          status: "pending",
+          tax_doc_status: pot.amount_cents >= 60000 ? "requested" : "not_required",
+        });
+      }
+    }
     const { error } = await admin.from("payouts").insert(rows);
     if (error) return { ok: false, message: error.message };
 

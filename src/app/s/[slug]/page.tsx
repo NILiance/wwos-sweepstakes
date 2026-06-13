@@ -18,7 +18,7 @@ export default async function ShowcasePage({
   const { data: sw } = await supabase
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images,offers),entries(count)",
+      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,side_pots,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images,offers),entries(count)",
     )
     .eq("slug", slug)
     .single();
@@ -150,6 +150,30 @@ export default async function ShowcasePage({
                 </div>
               ))}
             </div>
+            {Array.isArray(sw.side_pots) && sw.side_pots.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  Side pots
+                </p>
+                <div className="mt-2 space-y-2">
+                  {(sw.side_pots as { type: string; amount_cents: number }[]).map((sp) => (
+                    <div
+                      key={sp.type}
+                      className="flex items-center justify-between rounded-md bg-surface-raised px-4 py-2.5 text-sm"
+                    >
+                      <span>
+                        {sp.type === "lowest_score"
+                          ? "Lowest season score 🐢"
+                          : sp.type === "weekly_high"
+                            ? "Best single week 🔥"
+                            : "Highest-scoring team 🚀"}
+                      </span>
+                      <span className="font-bold text-info">{usd(sp.amount_cents)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         </div>
 

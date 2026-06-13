@@ -21,6 +21,14 @@ function parseConfig(formData: FormData) {
     .map((p) => ({ place: p, amount_cents: dollars(`payout_${p}`) }))
     .filter((p) => p.amount_cents > 0);
 
+  const side_pots = [
+    ["lowest_score", "sidepot_lowest"],
+    ["weekly_high", "sidepot_weekly"],
+    ["top_team", "sidepot_topteam"],
+  ]
+    .map(([type, field]) => ({ type, amount_cents: dollars(field) }))
+    .filter((p) => p.amount_cents > 0);
+
   const sports = SPORT_IDS.filter((s) => formData.get(`sport_${s}`)).map(
     (s) => ({
       sport_id: s,
@@ -39,6 +47,7 @@ function parseConfig(formData: FormData) {
     pool_size: Math.max(2, Number(formData.get("pool_size") ?? 15)),
     entry_price_cents: dollars("entry_price"),
     payout_structure,
+    side_pots,
     sports,
   };
 }
@@ -65,6 +74,7 @@ export async function createSweepstakes(
         pool_size: cfg.pool_size,
         entry_price_cents: cfg.entry_price_cents,
         payout_structure: cfg.payout_structure,
+        side_pots: cfg.side_pots,
         created_by: userId,
       })
       .select("id")
@@ -130,6 +140,7 @@ export async function updateSweepstakes(
         pool_size: cfg.pool_size,
         entry_price_cents: cfg.entry_price_cents,
         payout_structure: cfg.payout_structure,
+        side_pots: cfg.side_pots,
       })
       .eq("id", id);
     if (error) throw new Error(error.message);

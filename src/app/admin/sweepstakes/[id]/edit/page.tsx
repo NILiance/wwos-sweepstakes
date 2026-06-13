@@ -19,7 +19,7 @@ export default async function EditSweepstakesPage({
   const { data: sw } = await admin
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,visibility,pool_size,entry_price_cents,payout_structure,sweepstakes_sports(sport_id,picks_per_entry)",
+      "id,name,slug,description,season_label,visibility,pool_size,entry_price_cents,payout_structure,side_pots,sweepstakes_sports(sport_id,picks_per_entry)",
     )
     .eq("id", id)
     .single();
@@ -54,6 +54,7 @@ export default async function EditSweepstakesPage({
             pool_size: sw.pool_size,
             entry_price_cents: sw.entry_price_cents,
             payout_structure: sw.payout_structure as never,
+            side_pots: sw.side_pots as never,
             sports: sw.sweepstakes_sports as never,
           }}
         />
