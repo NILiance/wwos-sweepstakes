@@ -21,7 +21,7 @@ export default async function ShowcasePage({
   const { data: sw } = await supabase
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,side_pots,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images,offers),entries(count)",
+      "id,name,slug,description,season_label,status,game_mode,pool_size,entry_price_cents,payout_structure,side_pots,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images,offers),entries(count)",
     )
     .eq("slug", slug)
     .single();
@@ -70,6 +70,21 @@ export default async function ShowcasePage({
       </div>
       {sw.description && (
         <p className="mt-4 max-w-2xl text-muted">{sw.description}</p>
+      )}
+
+      {sw.game_mode === "bracket" && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/40 bg-info/10 px-5 py-4">
+          <p className="text-sm">
+            🏀 This is a <strong>Bracket Challenge</strong> — pick every game
+            through the champion.
+          </p>
+          <Link
+            href={`/s/${sw.slug}/bracket`}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
+          >
+            Fill your bracket →
+          </Link>
+        </div>
       )}
 
       <div className="mt-10 grid gap-8 lg:grid-cols-3">

@@ -45,7 +45,7 @@ export default async function SweepstakesLayout({
 
   return (
     <div>
-      <SubNav slug={slug} name={access.name!} />
+      <SubNav slug={slug} name={access.name!} mode={access.gameMode ?? "draw_roster"} />
       {children}
     </div>
   );

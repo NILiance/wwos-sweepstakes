@@ -3,17 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function SubNav({ slug, name }: { slug: string; name: string }) {
+export function SubNav({
+  slug,
+  name,
+  mode = "draw_roster",
+}: {
+  slug: string;
+  name: string;
+  mode?: string;
+}) {
   const pathname = usePathname();
   const base = `/s/${slug}`;
-  const TABS: [string, string][] = [
-    [base, "Pool"],
-    [`${base}/standings`, "Standings"],
-    [`${base}/draw`, "The Draw"],
-    [`${base}/board`, "Smack Talk"],
-    [`${base}/scoring`, "Scoring"],
-    [`${base}/rules`, "Rules"],
-  ];
+  const isBracket = mode === "bracket";
+  const TABS: [string, string][] = isBracket
+    ? [
+        [base, "Pool"],
+        [`${base}/bracket`, "Bracket"],
+        [`${base}/board`, "Smack Talk"],
+        [`${base}/rules`, "Rules"],
+      ]
+    : [
+        [base, "Pool"],
+        [`${base}/standings`, "Standings"],
+        [`${base}/draw`, "The Draw"],
+        [`${base}/board`, "Smack Talk"],
+        [`${base}/scoring`, "Scoring"],
+        [`${base}/rules`, "Rules"],
+      ];
 
   return (
     <div className="border-b border-border bg-surface/60">

@@ -76,6 +76,15 @@ export function SweepstakesForm({ values }: { values: SweepstakesFormValues }) {
               <option value="private">Private — link/invite only</option>
             </select>
           </label>
+          {!isEdit && (
+            <label className="text-sm font-medium">
+              Game mode
+              <select name="game_mode" defaultValue="draw_roster" className={field}>
+                <option value="draw_roster">Draw Roster — live random draw</option>
+                <option value="bracket">Bracket Challenge — March Madness</option>
+              </select>
+            </label>
+          )}
         </div>
         <label className="mt-4 block text-sm font-medium">
           Description

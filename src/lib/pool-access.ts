@@ -14,20 +14,21 @@ export const poolAccess = cache(
     exists: boolean;
     name: string | null;
     visibility: string | null;
+    gameMode: string | null;
     allowed: boolean;
     signedIn: boolean;
   }> => {
     const admin = createAdminClient();
     const { data: sw } = await admin
       .from("sweepstakes")
-      .select("id,name,visibility")
+      .select("id,name,visibility,game_mode")
       .eq("slug", slug)
       .maybeSingle();
     if (!sw) {
-      return { exists: false, name: null, visibility: null, allowed: false, signedIn: false };
+      return { exists: false, name: null, visibility: null, gameMode: null, allowed: false, signedIn: false };
     }
     if (sw.visibility !== "private") {
-      return { exists: true, name: sw.name, visibility: sw.visibility, allowed: true, signedIn: false };
+      return { exists: true, name: sw.name, visibility: sw.visibility, gameMode: sw.game_mode, allowed: true, signedIn: false };
     }
 
     const supabase = await createClient();
@@ -35,7 +36,7 @@ export const poolAccess = cache(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { exists: true, name: sw.name, visibility: "private", allowed: false, signedIn: false };
+      return { exists: true, name: sw.name, visibility: "private", gameMode: sw.game_mode, allowed: false, signedIn: false };
     }
 
     const { data: profile } = await admin
@@ -66,6 +67,6 @@ export const poolAccess = cache(
         .maybeSingle();
       allowed = !!share;
     }
-    return { exists: true, name: sw.name, visibility: "private", allowed, signedIn: true };
+    return { exists: true, name: sw.name, visibility: "private", gameMode: sw.game_mode, allowed, signedIn: true };
   },
 );

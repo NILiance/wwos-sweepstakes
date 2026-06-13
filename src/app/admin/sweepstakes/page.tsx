@@ -24,7 +24,7 @@ export default async function AdminSweepstakes() {
   const { data: pools } = await admin
     .from("sweepstakes")
     .select(
-      "id,name,slug,status,visibility,pool_size,entry_price_cents,season_label,entries(id,display_name,source,status)",
+      "id,name,slug,status,visibility,game_mode,pool_size,entry_price_cents,season_label,entries(id,display_name,source,status)",
     )
     .order("created_at", { ascending: false });
 
@@ -124,6 +124,14 @@ export default async function AdminSweepstakes() {
               >
                 🔢 Scoring
               </Link>
+              {p.game_mode === "bracket" && (
+                <Link
+                  href={`/admin/sweepstakes/${p.id}/bracket`}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-info hover:bg-surface-raised"
+                >
+                  🏀 Bracket
+                </Link>
+              )}
             </div>
 
             <details className="mt-4">

@@ -70,6 +70,8 @@ export async function createSweepstakes(
         description: cfg.description,
         season_label: cfg.season_label,
         visibility: cfg.visibility,
+        game_mode:
+          formData.get("game_mode") === "bracket" ? "bracket" : "draw_roster",
         status: "draft",
         pool_size: cfg.pool_size,
         entry_price_cents: cfg.entry_price_cents,
