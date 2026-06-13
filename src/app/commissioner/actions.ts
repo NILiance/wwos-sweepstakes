@@ -25,8 +25,8 @@ export async function createCommissionerLeague(
         slug: cfg.slug,
         description: cfg.description,
         season_label: cfg.season_label,
-        // commissioner leagues are private + manual-money by default
-        visibility: "private",
+        // commissioners run their own money off-platform; visibility is their call
+        visibility: cfg.visibility,
         game_mode:
           formData.get("game_mode") === "bracket" ? "bracket" : "draw_roster",
         status: "draft",
@@ -70,7 +70,9 @@ export async function addLeagueEntrant(
     const sweepstakesId = String(formData.get("sweepstakes_id"));
     const userId = await requireLeagueAccess(sweepstakesId);
     const displayName = String(formData.get("display_name") ?? "").trim();
-    if (!displayName) return { ok: false, message: "Entrant name required." };
+    if (!displayName) return { ok: false, message: "Member name required." };
+    const email = String(formData.get("email") ?? "").trim() || null;
+    const phone = String(formData.get("phone") ?? "").trim() || null;
 
     const admin = createAdminClient();
     const [{ data: sw }, { count: taken }] = await Promise.all([
@@ -85,11 +87,13 @@ export async function addLeagueEntrant(
     if ((taken ?? 0) >= sw.pool_size)
       return { ok: false, message: "League is full." };
 
-    // Entrants are owned by the commissioner for management purposes
+    // Members are owned by the commissioner for management purposes
     const { error } = await admin.from("entries").insert({
       sweepstakes_id: sweepstakesId,
       owner_user_id: userId,
       display_name: displayName,
+      email,
+      phone,
       status: "active",
       source: "admin",
     });
@@ -145,6 +149,113 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const admin = createAdminClient();
   await admin.from("league_payments").delete().eq("id", id);
   revalidatePath(`/commissioner/leagues/${sweepstakesId}`);
+}
+
+/** Edit a member's name / contact details. */
+export async function updateLeagueMember(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
+    const entryId = String(formData.get("entry_id"));
+    const displayName = String(formData.get("display_name") ?? "").trim();
+    if (!displayName) return { ok: false, message: "Member name required." };
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("entries")
+      .update({
+        display_name: displayName,
+        email: String(formData.get("email") ?? "").trim() || null,
+        phone: String(formData.get("phone") ?? "").trim() || null,
+      })
+      .eq("id", entryId)
+      .eq("sweepstakes_id", sweepstakesId);
+    if (error) return { ok: false, message: error.message };
+    revalidatePath(`/commissioner/leagues/${sweepstakesId}`);
+    return { ok: true, message: "Saved." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
+/** Remove a member from the league. */
+export async function removeLeagueMember(formData: FormData): Promise<void> {
+  const sweepstakesId = String(formData.get("sweepstakes_id"));
+  await requireLeagueAccess(sweepstakesId);
+  const entryId = String(formData.get("entry_id"));
+  const admin = createAdminClient();
+  await admin
+    .from("entries")
+    .delete()
+    .eq("id", entryId)
+    .eq("sweepstakes_id", sweepstakesId);
+  revalidatePath(`/commissioner/leagues/${sweepstakesId}`);
+}
+
+/** Email all members who have an address, and log the message. */
+export async function messageMembers(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sweepstakesId = String(formData.get("sweepstakes_id"));
+    const userId = await requireLeagueAccess(sweepstakesId);
+    const subject = String(formData.get("subject") ?? "").trim();
+    const bodyText = String(formData.get("body") ?? "").trim();
+    if (!subject || !bodyText)
+      return { ok: false, message: "Subject and message are both required." };
+
+    const admin = createAdminClient();
+    const { data: sw } = await admin
+      .from("sweepstakes")
+      .select("name")
+      .eq("id", sweepstakesId)
+      .single();
+    const { data: members } = await admin
+      .from("entries")
+      .select("display_name,email")
+      .eq("sweepstakes_id", sweepstakesId)
+      .eq("status", "active")
+      .not("email", "is", null);
+
+    const recipients = (members ?? []).filter((m) => m.email);
+    if (recipients.length === 0)
+      return {
+        ok: false,
+        message: "No members have an email address yet. Add one first.",
+      };
+
+    const { sendEmail, p } = await import("@/lib/email");
+    const html =
+      p(`<strong>${sw?.name ?? "Your league"}</strong>`) +
+      bodyText
+        .split(/\n{2,}/)
+        .map((para) => p(para.replace(/\n/g, "<br/>")))
+        .join("");
+
+    let sent = 0;
+    for (const m of recipients) {
+      const ok = await sendEmail(m.email as string, subject, subject, html, {
+        force: true,
+      });
+      if (ok) sent++;
+    }
+
+    await admin.from("league_messages").insert({
+      sweepstakes_id: sweepstakesId,
+      subject,
+      body: bodyText,
+      recipient_count: sent,
+      sent_by: userId,
+    });
+    revalidatePath(`/commissioner/leagues/${sweepstakesId}`);
+    return { ok: true, message: `Sent to ${sent} member${sent === 1 ? "" : "s"}.` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
 }
 
 /**

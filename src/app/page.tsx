@@ -203,26 +203,42 @@ export default async function Home() {
       {/* Two ways to play */}
       <section className="mx-auto max-w-6xl px-4 py-20">
         <h2 className="text-center text-3xl font-bold">Two ways to play</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-6 text-muted">
+          Jump into a pool we&apos;re running, or run your own — same engine,
+          same live scoring, your crew.
+        </p>
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-border bg-surface p-8">
-            <p className="text-3xl">🎰</p>
-            <h3 className="mt-3 text-xl font-bold">Draw Roster</h3>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              When the pool fills, a live, provably-fair random drawing hands
-              every entrant a roster across the leagues in play. Your teams earn
-              points for wins, bowls, playoff rounds and championships — all
-              season long, with live standings, trends and weekly accolades.
+          <div className="flex flex-col rounded-lg border border-border bg-surface p-8">
+            <p className="text-3xl">🏆</p>
+            <h3 className="mt-3 text-xl font-bold">Join one of our pools</h3>
+            <p className="mt-2 flex-1 text-sm leading-6 text-muted">
+              Pick an open pool and grab a spot. When it fills, a live,
+              provably-fair drawing hands you a roster across every league in
+              play — or fill out a bracket. Points roll in automatically with
+              live standings, scorecards and weekly accolades all season.
             </p>
+            <Link
+              href="/browse"
+              className="mt-5 inline-block self-start rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover"
+            >
+              Browse open pools →
+            </Link>
           </div>
-          <div className="rounded-lg border border-border bg-surface p-8">
-            <p className="text-3xl">🏀</p>
-            <h3 className="mt-3 text-xl font-bold">Bracket Challenge</h3>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Fill out the classic 64-team bracket — pick every game through the
-              champion. Round-weighted scoring and a live leaderboard track who
-              nailed it as the madness unfolds. Same brand, same crew, one
-              weekend of chaos.
+          <div className="flex flex-col rounded-lg border border-border bg-surface p-8">
+            <p className="text-3xl">🎟️</p>
+            <h3 className="mt-3 text-xl font-bold">Create your own pool</h3>
+            <p className="mt-2 flex-1 text-sm leading-6 text-muted">
+              Run your own league on our platform. Set it up, register your
+              members, schedule the draw, and let the scoring, standings and
+              live scorecards run themselves. You manage your members and
+              collect entry money your own way — we just power the tech.
             </p>
+            <Link
+              href="/commissioner"
+              className="mt-5 inline-block self-start rounded-md border border-border px-5 py-2.5 text-sm font-semibold hover:bg-surface-raised"
+            >
+              Start a league →
+            </Link>
           </div>
         </div>
         <p className="mt-10 text-center text-sm text-muted">

@@ -4,8 +4,15 @@ import { requireLeagueAccess } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SweepstakesForm } from "@/app/admin/sweepstakes/sweepstakes-form";
 import { usd } from "@/lib/format";
+import { fmtDate } from "@/lib/tz";
 import { LeagueTabs } from "./league-tabs";
-import { EntrantForm, PaymentForm, StatusControl } from "./manage-forms";
+import {
+  MemberForm,
+  MemberRow,
+  PaymentForm,
+  MessageForm,
+  StatusControl,
+} from "./manage-forms";
 
 export const metadata = { title: "Manage League — Commissioner" };
 export const revalidate = 0;
@@ -22,25 +29,34 @@ export default async function ManageLeaguePage({
   const { data: sw } = await admin
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,visibility,game_mode,status,pool_size,entry_price_cents,payout_structure,side_pots,sweepstakes_sports(sport_id,picks_per_entry)",
+      "id,name,slug,description,season_label,visibility,game_mode,status,pool_size,entry_price_cents,payout_structure,side_pots,timezone,sweepstakes_sports(sport_id,picks_per_entry)",
     )
     .eq("id", id)
     .single();
   if (!sw) notFound();
 
-  const [{ data: entries }, { data: payments }] = await Promise.all([
-    admin
-      .from("entries")
-      .select("id,display_name,status")
-      .eq("sweepstakes_id", id)
-      .eq("status", "active")
-      .order("created_at"),
-    admin
-      .from("league_payments")
-      .select("id,payer_name,amount_cents,method,status,note,created_at")
-      .eq("sweepstakes_id", id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: entries }, { data: payments }, { data: messages }] =
+    await Promise.all([
+      admin
+        .from("entries")
+        .select("id,display_name,email,phone,status")
+        .eq("sweepstakes_id", id)
+        .eq("status", "active")
+        .order("created_at"),
+      admin
+        .from("league_payments")
+        .select("id,payer_name,amount_cents,method,status,note,created_at")
+        .eq("sweepstakes_id", id)
+        .order("created_at", { ascending: false }),
+      admin
+        .from("league_messages")
+        .select("id,subject,body,recipient_count,created_at")
+        .eq("sweepstakes_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+  const withEmail = (entries ?? []).filter((e) => e.email).length;
 
   const collected = (payments ?? [])
     .filter((p) => p.status === "received")
@@ -64,32 +80,66 @@ export default async function ManageLeaguePage({
     />
   );
 
-  const entrantsTab = (
+  const membersTab = (
     <div className="space-y-6">
       <StatusControl sweepstakesId={sw.id} status={sw.status} />
       <section className="rounded-lg border border-border bg-surface p-5">
         <h3 className="font-bold">
-          Entrants{" "}
+          Members{" "}
           <span className="text-sm font-normal text-muted">
-            {(entries ?? []).length} of {sw.pool_size}
+            {(entries ?? []).length} of {sw.pool_size} · {withEmail} with email
           </span>
         </h3>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 divide-y divide-border">
           {(entries ?? []).map((e) => (
-            <span
+            <MemberRow
               key={e.id}
-              className="rounded-full bg-surface-raised px-2.5 py-1 text-xs"
-            >
-              {e.display_name}
-            </span>
+              sweepstakesId={sw.id}
+              member={{
+                id: e.id,
+                name: e.display_name,
+                email: e.email,
+                phone: e.phone,
+              }}
+            />
           ))}
           {(entries ?? []).length === 0 && (
-            <p className="text-sm text-muted">No entrants yet.</p>
+            <p className="py-2 text-sm text-muted">No members yet.</p>
           )}
         </div>
-        <EntrantForm sweepstakesId={sw.id} />
+        <MemberForm sweepstakesId={sw.id} />
       </section>
     </div>
+  );
+
+  const messageTab = (
+    <section className="rounded-lg border border-border bg-surface p-5">
+      <h3 className="font-bold">Message your members</h3>
+      <div className="mt-3">
+        <MessageForm sweepstakesId={sw.id} withEmail={withEmail} />
+      </div>
+      {(messages ?? []).length > 0 && (
+        <div className="mt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Sent history
+          </p>
+          <div className="mt-2 divide-y divide-border">
+            {(messages ?? []).map((m) => (
+              <div key={m.id} className="py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{m.subject}</span>
+                  <span className="text-xs text-muted">
+                    {fmtDate(m.created_at, sw.timezone ?? undefined)} ·{" "}
+                    {m.recipient_count} sent
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted">{m.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 
   const paymentsTab = (
@@ -185,7 +235,8 @@ export default async function ManageLeaguePage({
       <LeagueTabs
         tabs={[
           { key: "run", label: "▶ Run", content: runTab },
-          { key: "entrants", label: "👥 Entrants", content: entrantsTab },
+          { key: "members", label: "👥 Members", content: membersTab },
+          { key: "message", label: "✉ Message", content: messageTab },
           { key: "payments", label: "💵 Payments", content: paymentsTab },
           { key: "settings", label: "⚙ Settings", content: settingsTab },
         ]}

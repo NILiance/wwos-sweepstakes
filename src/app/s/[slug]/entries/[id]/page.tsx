@@ -3,6 +3,7 @@ import { poolAccess } from "@/lib/pool-access";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { entryTotals } from "@/lib/standings";
+import { EntryScorecard } from "./entry-scorecard";
 
 export const revalidate = 0;
 
@@ -43,6 +44,20 @@ export default async function PoolEntryPage({
   const { total, bySport: sportSplit } = await entryTotals(id);
   const sportTotals = new Map(Object.entries(sportSplit));
 
+  // Per-team point totals for the scorecard (paginated to clear PostgREST's cap)
+  const teamPoints = new Map<string, number>();
+  for (let from = 0; ; from += 1000) {
+    const { data } = await admin
+      .from("point_events")
+      .select("points,team_id")
+      .eq("entry_id", id)
+      .range(from, from + 999);
+    if (!data?.length) break;
+    for (const ev of data)
+      teamPoints.set(ev.team_id, (teamPoints.get(ev.team_id) ?? 0) + ev.points);
+    if (data.length < 1000) break;
+  }
+
   const teamIds = (roster ?? []).map((r) => r.team_id);
   const { data: upcoming } = teamIds.length
     ? await admin
@@ -65,6 +80,32 @@ export default async function PoolEntryPage({
     bySport.set(r.sport_id, [...(bySport.get(r.sport_id) ?? []), r]);
   }
   const sw = entry.sweepstakes as unknown as { slug: string; name: string };
+
+  // Scorecard sections: teams grouped by sport, points each, sorted by sport
+  const scoreSections = [...bySport.entries()]
+    .map(([sportId, teams]) => {
+      const meta = teams[0].sports as unknown as {
+        short_name?: string;
+        name?: string;
+        sort_order?: number;
+      };
+      const cards = teams.map((t) => {
+        const tm = t.teams as unknown as { abbrev: string; name: string };
+        return {
+          abbrev: tm.abbrev,
+          name: tm.name,
+          points: teamPoints.get(t.team_id) ?? 0,
+        };
+      });
+      return {
+        sportId,
+        label: meta?.short_name || meta?.name || sportId,
+        sortOrder: meta?.sort_order ?? 99,
+        teams: cards,
+        subtotal: cards.reduce((n, c) => n + c.points, 0),
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -91,6 +132,15 @@ export default async function PoolEntryPage({
           ))}
         </p>
       )}
+
+      <section className="mt-8">
+        <h2 className="font-bold">Scorecard</h2>
+        <p className="mb-3 mt-1 text-sm text-muted">
+          Your card, hole by hole — every team you drew and the points it&apos;s
+          banked.
+        </p>
+        <EntryScorecard sections={scoreSections} total={total} />
+      </section>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <section>

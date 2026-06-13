@@ -181,9 +181,11 @@ type FormAction = (
 export function SweepstakesForm({
   values,
   createAction,
+  hideProduct = false,
 }: {
   values: SweepstakesFormValues;
   createAction?: FormAction;
+  hideProduct?: boolean;
 }) {
   const isEdit = !!values.id;
   const [state, formAction, pending] = useActionState(
@@ -341,7 +343,7 @@ export function SweepstakesForm({
         </div>
       </section>
 
-      {!isEdit && (
+      {!isEdit && !hideProduct && (
         <section className="rounded-lg border border-border bg-surface p-6">
           <h3 className="font-semibold">Entry product</h3>
           <p className="mt-1 text-xs text-muted">
@@ -379,7 +381,13 @@ export function SweepstakesForm({
         disabled={pending}
         className="rounded-md bg-accent px-6 py-2.5 font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
       >
-        {pending ? "Saving…" : isEdit ? "Save changes" : "Create sweepstakes"}
+        {pending
+          ? "Saving…"
+          : isEdit
+            ? "Save changes"
+            : hideProduct
+              ? "Create league"
+              : "Create sweepstakes"}
       </button>
     </form>
   );
