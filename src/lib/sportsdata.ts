@@ -56,8 +56,39 @@ export type ProviderGame = {
   homeScore: number | null;
   awayScore: number | null;
   channel: string | null;
+  eventType: string; // scoring rule_key ('regular', 'wildcard', 'sugar_bowl', …)
   raw?: unknown;
 };
+
+/** Map a postseason game to its scoring rule_key where deterministic. */
+function eventTypeFor(
+  league: League,
+  isPost: boolean,
+  week: unknown,
+  title: unknown,
+): string {
+  if (!isPost) return "regular";
+  if (league === "nfl") {
+    const w = Number(week);
+    return (
+      { 1: "wildcard", 2: "divisional", 3: "conf_champ", 4: "super_bowl" }[w] ??
+      "wildcard"
+    );
+  }
+  if (league === "cfb") {
+    const t = String(title ?? "").toLowerCase();
+    if (t.includes("national championship") || t.includes("cfp championship"))
+      return "championship";
+    for (const bowl of ["sugar", "peach", "fiesta", "rose", "cotton", "orange"]) {
+      if (t.includes(bowl)) return `${bowl}_bowl`;
+    }
+    if (t.includes("first round") || t.includes("playoff")) return "playoff_r1";
+    return "bowl";
+  }
+  // NBA/NHL/MLB/WNBA: basic feeds don't carry the round — score as round 1
+  // until the manual console / series mapping refines it (meta keeps raw info)
+  return league === "mlb" ? "wildcard" : "playoff_r1";
+}
 
 type RawGame = Record<string, unknown>;
 
@@ -86,6 +117,7 @@ export async function fetchSeasonGames(
       ? `/nfl/scores/json/Schedules/${season}`
       : `/${league}/scores/json/Games/${season}`;
   const data = await sdio<RawGame[]>(path);
+  const isPost = String(season).toUpperCase().includes("POST");
   return data
     .filter(
       (g) =>
@@ -109,6 +141,7 @@ export async function fetchSeasonGames(
       awayScore:
         num(g["AwayTeamRuns"]) ?? num(g["AwayTeamScore"]) ?? num(g["AwayScore"]),
       channel: (g["Channel"] as string) ?? null,
+      eventType: eventTypeFor(league, isPost, g["Week"], g["Title"]),
     }));
 }
 

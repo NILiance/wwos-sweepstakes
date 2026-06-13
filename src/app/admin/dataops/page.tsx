@@ -1,6 +1,7 @@
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SyncButton } from "./sync-button";
+import { DisputeRow } from "./dispute-row";
 
 export const metadata = { title: "Data Ops — Admin" };
 export const revalidate = 0;
@@ -8,6 +9,14 @@ export const revalidate = 0;
 export default async function DataOpsPage() {
   await requireStaff("dataops");
   const admin = createAdminClient();
+
+  const { data: disputes } = await admin
+    .from("disputes")
+    .select(
+      "id,reason,note,status,created_at,entries(display_name,sweepstakes(name)),profiles:user_id(display_name)",
+    )
+    .in("status", ["open", "under_review"])
+    .order("created_at");
 
   const [{ data: sports }, { data: alerts }, { data: recent }] =
     await Promise.all([
@@ -62,6 +71,43 @@ export default async function DataOpsPage() {
             </span>
           ))}
         </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="font-bold">
+          Score disputes{" "}
+          <span className="text-sm font-normal text-muted">
+            ({disputes?.length ?? 0} open)
+          </span>
+        </h2>
+        {(disputes ?? []).length === 0 ? (
+          <p className="mt-2 text-sm text-muted">No open disputes.</p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {(disputes ?? []).map((d) => (
+              <DisputeRow
+                key={d.id}
+                dispute={{
+                  id: d.id,
+                  reason: d.reason,
+                  note: d.note,
+                  entry:
+                    (d.entries as unknown as { display_name: string })
+                      ?.display_name ?? "—",
+                  pool:
+                    (
+                      d.entries as unknown as {
+                        sweepstakes: { name: string };
+                      }
+                    )?.sweepstakes?.name ?? "—",
+                  reporter:
+                    (d.profiles as unknown as { display_name: string })
+                      ?.display_name ?? "—",
+                }}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-border bg-surface p-6">

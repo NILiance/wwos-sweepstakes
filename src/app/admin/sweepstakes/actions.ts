@@ -240,6 +240,71 @@ export async function cloneProduct(
   }
 }
 
+export async function refundEntry(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { userId } = await requireStaff("sweepstakes");
+    const entryId = String(formData.get("entry_id"));
+    const admin = createAdminClient();
+
+    const { data: entry } = await admin
+      .from("entries")
+      .select("id,display_name,status,sweepstakes_id,order_id,source,orders(stripe_session_id,amount_cents,status)")
+      .eq("id", entryId)
+      .single();
+    if (!entry) return { ok: false, message: "Entry not found." };
+    if (entry.status !== "active")
+      return { ok: false, message: "Entry is not active." };
+
+    const order = entry.orders as unknown as {
+      stripe_session_id: string | null;
+      amount_cents: number;
+      status: string;
+    } | null;
+
+    // Stripe refund for purchased entries; AMOE/admin entries just withdraw
+    if (order?.stripe_session_id && order.status === "paid") {
+      const { getStripe } = await import("@/lib/stripe");
+      const session = await getStripe().checkout.sessions.retrieve(
+        order.stripe_session_id,
+      );
+      if (typeof session.payment_intent === "string") {
+        await getStripe().refunds.create({
+          payment_intent: session.payment_intent,
+        });
+      }
+      await admin
+        .from("orders")
+        .update({ status: "refunded" })
+        .eq("id", entry.order_id);
+      await admin.from("pot_ledger").insert({
+        sweepstakes_id: entry.sweepstakes_id,
+        type: "refund",
+        amount_cents: -order.amount_cents,
+        ref_order_id: entry.order_id,
+      });
+    }
+
+    await admin.from("entries").update({ status: "refunded" }).eq("id", entryId);
+    await admin.from("audit_log").insert({
+      actor: userId,
+      action: "entry.refund",
+      target: entryId,
+      detail: { display_name: entry.display_name, stripe: !!order?.stripe_session_id },
+    });
+
+    revalidatePath("/admin/sweepstakes");
+    return {
+      ok: true,
+      message: `${entry.display_name} refunded — spot reopened.`,
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Refund failed." };
+  }
+}
+
 export async function toggleProductActive(formData: FormData): Promise<void> {
   await requireStaff("sweepstakes");
   const id = String(formData.get("product_id"));

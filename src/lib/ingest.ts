@@ -64,11 +64,22 @@ export async function syncTeams(league: League) {
   return { league, ourTeams: ours?.length ?? 0, matched, provider: provider.length };
 }
 
-/** Upsert this season's games into the central repository. */
+/** Upsert this season's games (regular + postseason) into the central repo. */
 export async function syncGames(league: League) {
   const admin = createAdminClient();
   const season = await fetchCurrentSeason(league);
-  const games = await fetchSeasonGames(league, season);
+
+  // Always try the postseason companion — empty until it exists
+  const base = String(season).replace(/(REG|POST|OFF)$/i, "");
+  const seasons = [...new Set([String(season), `${base}POST`])];
+  const games = [];
+  for (const s of seasons) {
+    try {
+      games.push(...(await fetchSeasonGames(league, s)));
+    } catch {
+      // postseason feed may 404 before it exists — fine
+    }
+  }
 
   // teams by provider key (external_ref preferred, abbrev fallback)
   const { data: ours } = await admin
@@ -100,7 +111,7 @@ export async function syncGames(league: League) {
       home_team_id: home,
       away_team_id: away,
       winner_team_id: winner,
-      event_type: "regular",
+      event_type: g.eventType,
       broadcast: g.channel ? { network: g.channel } : null,
       meta: { home_score: g.homeScore, away_score: g.awayScore, season },
       result_source: "api",
@@ -190,17 +201,17 @@ export async function scorePass() {
       .is("reversal_of", null)
       .range(from, to),
   );
+  // One award per (entry, game, scope) — rule_key omitted so a later
+  // event_type refinement (regular → wildcard) can't double-award.
   const seen = new Set(
-    existing.map(
-      (e) => `${e.entry_id}:${e.game_id}:${e.rule_key}:${e.scope}`,
-    ),
+    existing.map((e) => `${e.entry_id}:${e.game_id}:${e.scope}`),
   );
 
   let events = 0;
   for (const game of finals) {
     const holders = active.filter((r) => r.team_id === game.winner_team_id);
     for (const holder of holders) {
-      const key = `${holder.entry_id}:${game.id}:${game.event_type}:full_game`;
+      const key = `${holder.entry_id}:${game.id}:full_game`;
       if (seen.has(key)) continue;
       const e = holder.entries as unknown as { sweepstakes_id: string };
       const rule = ruleFor(e.sweepstakes_id, game.sport_id, game.event_type);

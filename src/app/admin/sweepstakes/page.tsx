@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { usd } from "@/lib/format";
 import { setStatus } from "./actions";
 import { AmoeForm } from "./amoe-form";
+import { RefundButton } from "./refund-button";
 
 export const metadata = { title: "Sweepstakes — Admin" };
 export const revalidate = 0;
@@ -96,6 +97,7 @@ export default async function AdminSweepstakes() {
                           ✉
                         </span>
                       )}
+                      <RefundButton entryId={e.id} name={e.display_name} />
                     </span>
                   ),
                 )}

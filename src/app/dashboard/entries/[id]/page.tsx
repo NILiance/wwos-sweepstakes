@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { entryTotals } from "@/lib/standings";
 import { SharePanel } from "./share-panel";
+import { DisputeForm } from "./dispute-form";
 
 export const revalidate = 0;
 
@@ -255,6 +256,7 @@ export default async function EntryPage({
             })}
           </div>
         )}
+        <DisputeForm entryId={entry.id} />
       </section>
 
       {entry.owner_user_id === user.id && (

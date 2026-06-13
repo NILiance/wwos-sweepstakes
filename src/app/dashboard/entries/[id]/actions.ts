@@ -65,6 +65,44 @@ export async function inviteCoOwner(
   return { ok: true, message: `Invited ${email}.` };
 }
 
+export async function reportScoreIssue(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Sign in first." };
+
+  const entryId = String(formData.get("entry_id"));
+  const reason = String(formData.get("reason"));
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500);
+  if (!["wrong_winner", "missing_game", "wrong_points", "duplicate", "other"].includes(reason)) {
+    return { ok: false, message: "Pick a reason." };
+  }
+
+  // rate limit: 3 open disputes per user
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("disputes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .in("status", ["open", "under_review"]);
+  if ((count ?? 0) >= 3) {
+    return { ok: false, message: "You have 3 open reports already — we're on it." };
+  }
+
+  const { error } = await admin.from("disputes").insert({
+    user_id: user.id,
+    entry_id: entryId,
+    reason,
+    note: note || null,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, message: "Reported — we'll review and email you the outcome." };
+}
+
 export async function removeCoOwner(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {
