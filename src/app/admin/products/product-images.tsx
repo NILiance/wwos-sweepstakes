@@ -1,7 +1,47 @@
 "use client";
 
 import { useActionState, useState, startTransition } from "react";
-import { addProductImages, removeProductImage } from "./actions";
+import { addProductImages, removeProductImage, updateProductOffers } from "./actions";
+
+export function OffersEditor({
+  productId,
+  offers,
+}: {
+  productId: string;
+  offers: string[];
+}) {
+  const [state, formAction, pending] = useActionState(updateProductOffers, null);
+
+  return (
+    <form action={formAction} className="mt-4">
+      <input type="hidden" name="product_id" value={productId} />
+      <label className="block text-sm font-medium">
+        Partner offers <span className="text-xs text-muted">(one per line — shown on the product page)</span>
+        <textarea
+          name="offers"
+          rows={4}
+          defaultValue={offers.join("\n")}
+          placeholder={"20% off at Primo's Pizzeria\nBOGO wings at The End Zone"}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-info"
+        />
+      </label>
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-md border border-border px-4 py-1.5 text-sm font-semibold hover:bg-surface-raised disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Save offers"}
+        </button>
+        {state && (
+          <p className={`text-sm ${state.ok ? "text-info" : "text-brand-red"}`}>
+            {state.message}
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}
 import { uploadDirect } from "@/lib/upload-client";
 
 export function ImageUploader({ productId }: { productId: string }) {

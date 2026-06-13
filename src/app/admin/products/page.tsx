@@ -1,7 +1,7 @@
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usd } from "@/lib/format";
-import { ImageUploader, RemoveImageButton } from "./product-images";
+import { ImageUploader, RemoveImageButton, OffersEditor } from "./product-images";
 
 export const metadata = { title: "Products — Admin" };
 export const revalidate = 0;
@@ -12,7 +12,7 @@ export default async function ProductsAdmin() {
 
   const { data: products } = await admin
     .from("products")
-    .select("id,name,description,price_cents,images,active,sweepstakes(name)")
+    .select("id,name,description,price_cents,images,offers,active,sweepstakes(name)")
     .order("created_at", { ascending: false });
 
   return (
@@ -49,6 +49,10 @@ export default async function ProductsAdmin() {
             </div>
 
             <ImageUploader productId={p.id} />
+            <OffersEditor
+              productId={p.id}
+              offers={Array.isArray(p.offers) ? (p.offers as string[]) : []}
+            />
           </div>
         );
       })}

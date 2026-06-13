@@ -18,7 +18,7 @@ export default async function ShowcasePage({
   const { data: sw } = await supabase
     .from("sweepstakes")
     .select(
-      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images),entries(count)",
+      "id,name,slug,description,season_label,status,pool_size,entry_price_cents,payout_structure,house_cut_pct,house_cut_flat_cents,sweepstakes_sports(sport_id,picks_per_entry,sports(name)),products(id,name,description,price_cents,requires_shipping,active,images,offers),entries(count)",
     )
     .eq("slug", slug)
     .single();
@@ -174,6 +174,21 @@ export default async function ShowcasePage({
                   <p className="mt-2 text-sm text-muted">
                     {product.description}
                   </p>
+                )}
+                {Array.isArray(product.offers) && product.offers.length > 0 && (
+                  <div className="mt-4 rounded-md border border-info/30 bg-info/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-info">
+                      Loaded with partner offers
+                    </p>
+                    <ul className="mt-2 space-y-1.5">
+                      {(product.offers as string[]).map((offer) => (
+                        <li key={offer} className="flex gap-2 text-sm">
+                          <span className="text-info">✓</span>
+                          <span>{offer}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 <p className="mt-4 text-3xl font-extrabold">
                   {usd(product.price_cents)}

@@ -40,6 +40,34 @@ export async function addProductImages(
   }
 }
 
+export async function updateProductOffers(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await requireStaff("products");
+    const productId = String(formData.get("product_id"));
+    const offers = String(formData.get("offers") ?? "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("products")
+      .update({ offers })
+      .eq("id", productId);
+    if (error) return { ok: false, message: error.message };
+
+    revalidatePath("/admin/products");
+    revalidatePath("/", "layout");
+    return { ok: true, message: `${offers.length} offer(s) saved.` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
 export async function removeProductImage(formData: FormData): Promise<void> {
   await requireStaff("products");
   const productId = String(formData.get("product_id"));
