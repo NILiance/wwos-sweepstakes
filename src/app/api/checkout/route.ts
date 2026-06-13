@@ -25,24 +25,18 @@ export async function POST(request: Request) {
   const { sweepstakesId, productId } = parsed.data;
 
   const admin = createAdminClient();
-  const [{ data: sw }, { data: product }, { count: taken }] =
-    await Promise.all([
-      admin
-        .from("sweepstakes")
-        .select("id,slug,name,status,pool_size")
-        .eq("id", sweepstakesId)
-        .single(),
-      admin
-        .from("products")
-        .select("id,name,description,price_cents,requires_shipping,active,sweepstakes_id")
-        .eq("id", productId)
-        .single(),
-      admin
-        .from("entries")
-        .select("id", { count: "exact", head: true })
-        .eq("sweepstakes_id", sweepstakesId)
-        .eq("status", "active"),
-    ]);
+  const [{ data: sw }, { data: product }] = await Promise.all([
+    admin
+      .from("sweepstakes")
+      .select("id,slug,name,status,pool_size")
+      .eq("id", sweepstakesId)
+      .single(),
+    admin
+      .from("products")
+      .select("id,name,description,price_cents,requires_shipping,active,sweepstakes_id")
+      .eq("id", productId)
+      .single(),
+  ]);
 
   if (!sw || !product || product.sweepstakes_id !== sw.id || !product.active) {
     return NextResponse.json({ error: "Pool not found." }, { status: 404 });
@@ -53,8 +47,14 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  if ((taken ?? 0) >= sw.pool_size) {
-    return NextResponse.json({ error: "Pool is full." }, { status: 409 });
+  // Capacity honors other entrants' live renewal reservations
+  const { occupiedSpots } = await import("@/lib/renewals");
+  const occupied = await occupiedSpots(sw.id, user.id);
+  if (occupied >= sw.pool_size) {
+    return NextResponse.json(
+      { error: "Pool is full (some spots are reserved for returning entrants)." },
+      { status: 409 },
+    );
   }
 
   const origin = new URL(request.url).origin;

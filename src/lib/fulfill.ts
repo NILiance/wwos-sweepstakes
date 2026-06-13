@@ -77,6 +77,14 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
     ref_order_id: order.id,
   });
 
+  // Returning entrant renewing a reserved spot? Mark it renewed.
+  await admin
+    .from("renewals")
+    .update({ status: "renewed", renewed_order_id: order.id })
+    .eq("next_sweepstakes_id", sweepstakes_id)
+    .eq("user_id", user_id)
+    .eq("status", "reserved");
+
   // Flip pool to full when the last spot is taken
   const [{ data: sw }, { count: taken }] = await Promise.all([
     admin.from("sweepstakes").select("pool_size,status").eq("id", sweepstakes_id).single(),

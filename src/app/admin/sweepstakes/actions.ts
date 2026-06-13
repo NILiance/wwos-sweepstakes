@@ -251,6 +251,39 @@ export async function cloneProduct(
   }
 }
 
+export async function openNextSeasonAction(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { userId } = await requireStaff("sweepstakes");
+    const { openNextSeason } = await import("@/lib/renewals");
+    const name = String(formData.get("name") ?? "").trim();
+    let slug = String(formData.get("slug") ?? "").trim().toLowerCase();
+    if (!slug)
+      slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const deadline = String(formData.get("deadline") ?? "");
+    if (!name || !deadline)
+      return { ok: false, message: "Name and renewal deadline required." };
+
+    const result = await openNextSeason({
+      priorSweepstakesId: String(formData.get("prior_id")),
+      name,
+      slug,
+      seasonLabel: String(formData.get("season_label") ?? "").trim() || null,
+      renewalDeadline: new Date(deadline).toISOString(),
+      actorId: userId,
+    });
+    revalidatePath("/admin/sweepstakes");
+    return {
+      ok: true,
+      message: `${name} created (enrolling) — ${result.reserved} spots reserved and renewal emails sent.`,
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
 export async function refundEntry(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData,
@@ -305,6 +338,38 @@ export async function refundEntry(
       target: entryId,
       detail: { display_name: entry.display_name, stripe: !!order?.stripe_session_id },
     });
+
+    // Spot opened — notify the first person on the waitlist (best-effort)
+    try {
+      const { data: next } = await admin
+        .from("waitlist")
+        .select("id,user_id,sweepstakes:sweepstakes_id(name,slug)")
+        .eq("sweepstakes_id", entry.sweepstakes_id)
+        .is("notified_at", null)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+      if (next) {
+        const { data: u } = await admin.auth.admin.getUserById(next.user_id);
+        const sw = next.sweepstakes as unknown as { name: string; slug: string };
+        if (u?.user?.email) {
+          const { sendEmail, p, cta, SITE } = await import("@/lib/email");
+          await sendEmail(
+            u.user.email,
+            `A spot just opened in ${sw.name}!`,
+            "You're up! 🔔",
+            p(`You're first on the waitlist and a spot just opened in <strong>${sw.name}</strong>. Spots go to whoever completes purchase first — don't sit on it.`) +
+              cta(`${SITE}/s/${sw.slug}`, "Grab the spot"),
+          );
+        }
+        await admin
+          .from("waitlist")
+          .update({ notified_at: new Date().toISOString() })
+          .eq("id", next.id);
+      }
+    } catch {
+      // waitlist table may not exist yet (migration 0006)
+    }
 
     revalidatePath("/admin/sweepstakes");
     return {

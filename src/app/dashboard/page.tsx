@@ -36,6 +36,21 @@ export default async function DashboardPage() {
       .is("user_id", null);
   }
 
+  // Reserved renewal spots (next-season lock-in)
+  const { data: renewalRows } = await supabase
+    .from("renewals")
+    .select("id,deadline,sweepstakes:next_sweepstakes_id(name,slug)")
+    .eq("user_id", user!.id)
+    .eq("status", "reserved");
+  const renewals = (renewalRows ?? [])
+    .filter((r) => !r.deadline || new Date(r.deadline) > new Date())
+    .map((r) => ({
+      id: r.id,
+      deadline: r.deadline as string,
+      poolName: (r.sweepstakes as unknown as { name: string })?.name ?? "next season",
+      poolSlug: (r.sweepstakes as unknown as { slug: string })?.slug ?? "",
+    }));
+
   // Entries shared with me (co-owner)
   const { data: sharedRows } = await supabase
     .from("entry_shares")
@@ -74,6 +89,36 @@ export default async function DashboardPage() {
       <p className="mt-2 text-muted">
         Your pools, ranks, points and upcoming games — all in one place.
       </p>
+
+      {renewals.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {renewals.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/60 bg-accent/10 px-5 py-4"
+            >
+              <p className="text-sm">
+                🔒 Your spot in{" "}
+                <span className="font-bold">{r.poolName}</span> is reserved —
+                renew by{" "}
+                <span className="font-semibold">
+                  {new Date(r.deadline).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>{" "}
+                to keep it.
+              </p>
+              <Link
+                href={`/s/${r.poolSlug}`}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
+              >
+                Renew now
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {list.length === 0 ? (
         <div className="mt-10 rounded-lg border border-dashed border-border bg-surface p-12 text-center text-muted">

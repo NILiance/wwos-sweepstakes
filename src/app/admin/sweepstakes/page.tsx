@@ -4,6 +4,7 @@ import { usd } from "@/lib/format";
 import { setStatus } from "./actions";
 import { AmoeForm } from "./amoe-form";
 import { RefundButton } from "./refund-button";
+import { NextSeasonForm } from "./next-season-form";
 
 export const metadata = { title: "Sweepstakes — Admin" };
 export const revalidate = 0;
@@ -125,6 +126,15 @@ export default async function AdminSweepstakes() {
               </summary>
               <AmoeForm sweepstakesId={p.id} />
             </details>
+
+            {["active", "completed"].includes(p.status) && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-info">
+                  🔁 Open next season (reserve returning entrants)
+                </summary>
+                <NextSeasonForm priorId={p.id} priorName={p.name} />
+              </details>
+            )}
           </div>
         );
       })}

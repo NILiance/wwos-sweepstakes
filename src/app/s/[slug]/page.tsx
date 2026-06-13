@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { usd, ordinal } from "@/lib/format";
 import { BuyButton } from "./buy-button";
 import { ProductGallery } from "./product-gallery";
+import { WaitlistButton } from "./waitlist-button";
 
 export const revalidate = 0;
 
@@ -222,6 +223,9 @@ export default async function ShowcasePage({
                   productId={product.id}
                   disabled={left <= 0 || sw.status !== "enrolling"}
                 />
+                {(left <= 0 || sw.status === "full") && (
+                  <WaitlistButton sweepstakesId={sw.id} />
+                )}
                 <div className="mt-4 rounded-md bg-surface-raised px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-info">
                     Bonus included
