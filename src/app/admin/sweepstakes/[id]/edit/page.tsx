@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SweepstakesForm } from "../../sweepstakes-form";
+import { ProductsPanel } from "../../products-panel";
 
 export const metadata = { title: "Edit Sweepstakes — Admin" };
 export const revalidate = 0;
@@ -24,6 +25,20 @@ export default async function EditSweepstakesPage({
     .single();
   if (!sw) notFound();
 
+  const [{ data: products }, { data: catalog }] = await Promise.all([
+    admin
+      .from("products")
+      .select("id,name,price_cents,active")
+      .eq("sweepstakes_id", id)
+      .order("name"),
+    admin
+      .from("products")
+      .select("id,name,price_cents,sweepstakes:sweepstakes_id(name)")
+      .neq("sweepstakes_id", id)
+      .order("name")
+      .limit(50),
+  ]);
+
   return (
     <div>
       <h2 className="text-lg font-bold">Edit — {sw.name}</h2>
@@ -43,6 +58,17 @@ export default async function EditSweepstakesPage({
           }}
         />
       </div>
+      <ProductsPanel
+        sweepstakesId={sw.id}
+        products={(products ?? []) as never}
+        catalog={(catalog ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          price_cents: c.price_cents,
+          pool:
+            (c.sweepstakes as unknown as { name: string })?.name ?? "—",
+        }))}
+      />
     </div>
   );
 }

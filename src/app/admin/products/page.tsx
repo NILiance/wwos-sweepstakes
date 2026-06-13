@@ -13,7 +13,7 @@ export default async function ProductsAdmin() {
   const { data: products } = await admin
     .from("products")
     .select("id,name,description,price_cents,images,offers,active,sweepstakes(name)")
-    .order("created_at", { ascending: false });
+    .order("name");
 
   return (
     <div className="space-y-6">

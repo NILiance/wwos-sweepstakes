@@ -178,6 +178,78 @@ const STATUSES = [
   "archived",
 ] as const;
 
+export async function addProduct(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await requireStaff("sweepstakes");
+    const sweepstakesId = String(formData.get("sweepstakes_id"));
+    const name = String(formData.get("name") ?? "").trim();
+    if (!name) return { ok: false, message: "Product name required." };
+
+    const admin = createAdminClient();
+    const { error } = await admin.from("products").insert({
+      sweepstakes_id: sweepstakesId,
+      name,
+      description: String(formData.get("description") ?? "").trim() || null,
+      price_cents: Math.round(Number(formData.get("price") ?? 0) * 100),
+      requires_shipping: !!formData.get("shipping"),
+      images: [],
+      offers: [],
+      active: true,
+    });
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/admin/sweepstakes");
+    revalidatePath("/admin/products");
+    return { ok: true, message: `${name} added — photos & offers on the Products tab.` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
+export async function cloneProduct(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await requireStaff("sweepstakes");
+    const sweepstakesId = String(formData.get("sweepstakes_id"));
+    const sourceId = String(formData.get("source_product_id"));
+    if (!sourceId) return { ok: false, message: "Pick a product to copy." };
+
+    const admin = createAdminClient();
+    const { data: src } = await admin
+      .from("products")
+      .select("name,description,price_cents,requires_shipping,images,offers")
+      .eq("id", sourceId)
+      .single();
+    if (!src) return { ok: false, message: "Source product not found." };
+
+    const { error } = await admin.from("products").insert({
+      ...src,
+      sweepstakes_id: sweepstakesId,
+      active: true,
+    });
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/admin/sweepstakes");
+    revalidatePath("/admin/products");
+    return { ok: true, message: `Copied "${src.name}" (photos & offers included).` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
+export async function toggleProductActive(formData: FormData): Promise<void> {
+  await requireStaff("sweepstakes");
+  const id = String(formData.get("product_id"));
+  const active = formData.get("active") === "true";
+  const admin = createAdminClient();
+  await admin.from("products").update({ active }).eq("id", id);
+  revalidatePath("/admin/sweepstakes");
+  revalidatePath("/admin/products");
+}
+
 export async function setStatus(formData: FormData): Promise<void> {
   const { userId: adminId } = await requireStaff("sweepstakes");
   const id = String(formData.get("id"));
