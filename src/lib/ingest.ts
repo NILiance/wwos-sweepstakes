@@ -247,5 +247,13 @@ export async function runIngest(leagues: League[], includeGolf = true) {
     }
   }
   results.scoring = await scorePass();
+  try {
+    const { takeSnapshots } = await import("@/lib/snapshots");
+    results.snapshots = await takeSnapshots();
+  } catch (err) {
+    results.snapshots = {
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
   return results;
 }

@@ -21,5 +21,18 @@ export async function GET(request: Request) {
     : LEAGUES;
 
   const results = await runIngest(leagues);
+
+  // Weekly recap emails on Mondays (or force with ?recap=1)
+  if (new Date().getUTCDay() === 1 || url.searchParams.get("recap") === "1") {
+    try {
+      const { sendWeeklyRecaps } = await import("@/lib/snapshots");
+      (results as Record<string, unknown>).recaps = await sendWeeklyRecaps();
+    } catch (err) {
+      (results as Record<string, unknown>).recaps = {
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   return NextResponse.json({ ok: true, results });
 }

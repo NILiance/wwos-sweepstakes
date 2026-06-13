@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail, p, cta, SITE } from "@/lib/email";
 
 /**
  * Idempotent fulfillment: paid checkout session → order + entry + pot ledger.
@@ -90,6 +91,25 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
       .from("sweepstakes")
       .update({ status: "full" })
       .eq("id", sweepstakes_id);
+  }
+
+  // Receipt + entry confirmation (best-effort)
+  const [{ data: swInfo }, { data: prodInfo }, userRes] = await Promise.all([
+    admin.from("sweepstakes").select("name,slug").eq("id", sweepstakes_id).single(),
+    admin.from("products").select("name").eq("id", product_id).single(),
+    admin.auth.admin.getUserById(user_id),
+  ]);
+  const email = userRes.data?.user?.email;
+  if (email && swInfo) {
+    await sendEmail(
+      email,
+      `Order confirmed — ${prodInfo?.name ?? "your purchase"}`,
+      "You're in! 🎉",
+      p(`Thanks for your purchase of <strong>${prodInfo?.name ?? "the product"}</strong> ($${((session.amount_total ?? 0) / 100).toLocaleString()}).`) +
+        p(`Your bonus entry in <strong>${swInfo.name}</strong> is locked in. When the pool fills, the live drawing assigns your roster — watch every pick land in real time.`) +
+        cta(`${SITE}/s/${swInfo.slug}`, "View the pool") +
+        p(`No purchase was necessary to enter — see the official rules on the pool page.`),
+    );
   }
 
   return { ok: true as const, orderId: order.id, entryId: entry.id };

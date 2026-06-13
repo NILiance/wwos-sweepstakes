@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { entryTotals } from "@/lib/standings";
+import { SharePanel } from "./share-panel";
 
 export const revalidate = 0;
 
@@ -66,7 +68,12 @@ export default async function EntryPage({
       .limit(100),
   ]);
 
-  const total = (events ?? []).reduce((n, e) => n + e.points, 0);
+  const { total } = await entryTotals(id);
+
+  const { data: shares } = await admin
+    .from("entry_shares")
+    .select("id,invited_email,status")
+    .eq("entry_id", id);
 
   // Upcoming games for rostered teams (next 14 days) with TV info
   const teamIds = (roster ?? []).map((r) => r.team_id);
@@ -249,6 +256,17 @@ export default async function EntryPage({
           </div>
         )}
       </section>
+
+      {entry.owner_user_id === user.id && (
+        <SharePanel
+          entryId={entry.id}
+          shares={(shares ?? []).map((s) => ({
+            id: s.id,
+            email: s.invited_email ?? "—",
+            status: s.status,
+          }))}
+        />
+      )}
     </div>
   );
 }

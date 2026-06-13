@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runDraw, finishDrawNow } from "@/lib/draw";
 import { scorePass } from "@/lib/ingest";
+import { isoWeek } from "@/lib/snapshots";
 
 const SIM_SLUG = "draw-simulator";
 const REHEARSAL_SLUG = "draw-rehearsal";
@@ -56,6 +57,9 @@ async function wipeSimPool(
     await admin.from("draw_picks").delete().eq("draw_id", d.id);
   }
   await admin.from("draws").delete().eq("sweepstakes_id", simId);
+  // payouts/ledger reference entries without cascade — clear them first
+  await admin.from("payouts").delete().eq("sweepstakes_id", simId);
+  await admin.from("pot_ledger").delete().eq("sweepstakes_id", simId);
   await admin.from("entries").delete().eq("sweepstakes_id", simId);
 }
 
@@ -218,6 +222,77 @@ export async function instantPreview(): Promise<{
           created_at: new Date(base + i * 3600e3).toISOString(),
         })),
       );
+    }
+
+    // Synthesize five weeks of standings history (deterministic walk toward
+    // each entry's real total) so trends, movement and accolades demo fully.
+    const { data: totalsRows } = await admin
+      .from("entries")
+      .select("id")
+      .eq("sweepstakes_id", sim.id)
+      .eq("status", "active");
+    if (totalsRows?.length) {
+      const week = isoWeek();
+      const weeks = [week - 4, week - 3, week - 2, week - 1, week];
+      const totals = new Map<string, number>();
+      for (let from = 0; ; from += 1000) {
+        const { data } = await admin
+          .from("point_events")
+          .select("entry_id,points")
+          .in("entry_id", totalsRows.map((e) => e.id))
+          .range(from, from + 999);
+        if (!data?.length) break;
+        for (const ev of data)
+          totals.set(ev.entry_id, (totals.get(ev.entry_id) ?? 0) + ev.points);
+        if (data.length < 1000) break;
+      }
+      const snaps: object[] = [];
+      weeks.forEach((w, wi) => {
+        // deterministic per-entry curve: front-loaded for some, late surge for others
+        const ranked = totalsRows
+          .map((e, ei) => {
+            const total = totals.get(e.id) ?? 0;
+            const bend = 0.7 + ((ei * 37) % 7) / 10; // 0.7..1.3 exponent
+            const frac = Math.pow((wi + 1) / weeks.length, bend);
+            return { id: e.id, pts: Math.round(total * frac) };
+          })
+          .sort((a, b) => b.pts - a.pts);
+        ranked.forEach((r, i) =>
+          snaps.push({
+            sweepstakes_id: sim!.id,
+            entry_id: r.id,
+            week: w,
+            rank: i + 1,
+            total_points: r.pts,
+          }),
+        );
+      });
+      await admin
+        .from("standings_snapshots")
+        .upsert(snaps as never, { onConflict: "sweepstakes_id,entry_id,week" });
+
+      // Accolades for the latest completed synthetic week
+      await admin.from("accolades").delete().eq("sweepstakes_id", sim.id);
+      const lastW = weeks[3];
+      const prevW = weeks[2];
+      const byWeek = (w: number) =>
+        (snaps as { entry_id: string; week: number; rank: number; total_points: number }[]).filter(
+          (s) => s.week === w,
+        );
+      const prev = new Map(byWeek(prevW).map((s) => [s.entry_id, s]));
+      const gains = byWeek(lastW).map((s) => ({
+        entry_id: s.entry_id,
+        gain: s.total_points - (prev.get(s.entry_id)?.total_points ?? 0),
+        climb: (prev.get(s.entry_id)?.rank ?? s.rank) - s.rank,
+      }));
+      const high = [...gains].sort((a, b) => b.gain - a.gain)[0];
+      const climber = [...gains].sort((a, b) => b.climb - a.climb)[0];
+      const accRows = [];
+      if (high?.gain > 0)
+        accRows.push({ sweepstakes_id: sim.id, entry_id: high.entry_id, type: "weekly_high", week: lastW, value: { gain: high.gain } });
+      if (climber?.climb > 0 && climber.entry_id !== high?.entry_id)
+        accRows.push({ sweepstakes_id: sim.id, entry_id: climber.entry_id, type: "biggest_climber", week: lastW, value: { spots: climber.climb } });
+      if (accRows.length) await admin.from("accolades").insert(accRows);
     }
 
     revalidatePath("/admin/simulator");

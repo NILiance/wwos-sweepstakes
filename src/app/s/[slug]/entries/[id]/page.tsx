@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { entryTotals } from "@/lib/standings";
 
 export const revalidate = 0;
 
@@ -37,12 +38,8 @@ export default async function PoolEntryPage({
       .limit(100),
   ]);
 
-  const total = (events ?? []).reduce((n, e) => n + e.points, 0);
-  const sportTotals = new Map<string, number>();
-  for (const e of events ?? []) {
-    const s = (e.teams as unknown as { sport_id: string })?.sport_id ?? "?";
-    sportTotals.set(s, (sportTotals.get(s) ?? 0) + e.points);
-  }
+  const { total, bySport: sportSplit } = await entryTotals(id);
+  const sportTotals = new Map(Object.entries(sportSplit));
 
   const teamIds = (roster ?? []).map((r) => r.team_id);
   const { data: upcoming } = teamIds.length

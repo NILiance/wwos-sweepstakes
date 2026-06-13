@@ -26,7 +26,28 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  const list = (entries ?? []) as unknown as {
+  // Claim invites sent to my email before I had an account
+  if (user?.email) {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    await createAdminClient()
+      .from("entry_shares")
+      .update({ user_id: user.id, status: "accepted" })
+      .eq("invited_email", user.email.toLowerCase())
+      .is("user_id", null);
+  }
+
+  // Entries shared with me (co-owner)
+  const { data: sharedRows } = await supabase
+    .from("entry_shares")
+    .select(
+      "entries(id,display_name,status,created_at,sweepstakes(name,slug,status,season_label))",
+    )
+    .eq("user_id", user!.id);
+  const shared = (sharedRows ?? [])
+    .map((s) => s.entries as unknown as NonNullable<typeof entries>[number])
+    .filter((e) => e && e.status === "active");
+
+  const list = [...(entries ?? []), ...shared] as unknown as {
     id: string;
     display_name: string;
     sweepstakes: {
@@ -39,9 +60,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
-      <h1 className="text-3xl font-bold">
-        {profile ? `Welcome, ${profile.display_name}` : "My Entries"}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold">
+          {profile ? `Welcome, ${profile.display_name}` : "My Entries"}
+        </h1>
+        <Link
+          href="/dashboard/settings"
+          className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground"
+        >
+          ⚙ Payout settings
+        </Link>
+      </div>
       <p className="mt-2 text-muted">
         Your pools, ranks, points and upcoming games — all in one place.
       </p>

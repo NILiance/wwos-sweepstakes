@@ -1,5 +1,37 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail, p, cta, SITE } from "@/lib/email";
+
+/** Email every entrant their roster is in (best-effort). */
+async function notifyDrawComplete(sweepstakesId: string) {
+  const admin = createAdminClient();
+  const { data: sw } = await admin
+    .from("sweepstakes")
+    .select("name,slug")
+    .eq("id", sweepstakesId)
+    .single();
+  const { data: entries } = await admin
+    .from("entries")
+    .select("owner_user_id,display_name")
+    .eq("sweepstakes_id", sweepstakesId)
+    .eq("status", "active");
+  if (!sw || !entries?.length) return;
+
+  const owners = [...new Set(entries.map((e) => e.owner_user_id))];
+  for (const userId of owners) {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    const email = data?.user?.email;
+    if (!email) continue;
+    await sendEmail(
+      email,
+      `The ${sw.name} draw is complete — your roster is in`,
+      "Your teams are locked in 🎰",
+      p(`The <strong>${sw.name}</strong> drawing is complete. Your roster is set — every win earns you points from here on out.`) +
+        cta(`${SITE}/s/${sw.slug}/standings`, "See the standings") +
+        p(`Check your entry page for your full roster, points history, and this week's watch list.`),
+    );
+  }
+}
 
 /**
  * Provably fair draw (SCOPE §4.5):
@@ -194,6 +226,7 @@ export async function finishDrawNow(sweepstakesId: string) {
     .update({ status: "active" })
     .eq("id", sweepstakesId);
   await broadcast(`draw:${sweepstakesId}`, "complete", { seed });
+  await notifyDrawComplete(sweepstakesId);
   return { ok: true as const, picks: allPicks?.length ?? 0 };
 }
 
@@ -252,6 +285,7 @@ export async function revealNextPick(sweepstakesId: string) {
       .update({ status: "active" })
       .eq("id", sweepstakesId);
     await broadcast(`draw:${sweepstakesId}`, "complete", { seed });
+  await notifyDrawComplete(sweepstakesId);
     return { done: true as const };
   }
 
