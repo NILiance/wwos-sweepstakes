@@ -114,15 +114,27 @@ export async function runDraw(sweepstakesId: string) {
   let sequence = 1;
 
   for (const sc of sportsOrdered) {
-    const { data: pool } = await admin
-      .from("teams")
-      .select("id")
-      .eq("sport_id", sc.sport_id)
-      .eq("active", true);
+    // Custom per-sweepstakes pool overrides the auto-derived pool
+    const { data: custom } = await admin
+      .from("sweepstakes_pool")
+      .select("team_id")
+      .eq("sweepstakes_id", sweepstakesId)
+      .eq("sport_id", sc.sport_id);
+    let pool: { id: string }[];
+    if (custom && custom.length) {
+      pool = custom.map((c) => ({ id: c.team_id }));
+    } else {
+      const { data: autoPool } = await admin
+        .from("teams")
+        .select("id")
+        .eq("sport_id", sc.sport_id)
+        .eq("active", true);
+      pool = autoPool ?? [];
+    }
     const need = entryOrder.length * sc.picks_per_entry;
-    if (!pool || pool.length < need) {
+    if (pool.length < need) {
       throw new Error(
-        `Not enough ${sc.sport_id} teams: need ${need}, have ${pool?.length ?? 0}`,
+        `Not enough ${sc.sport_id} teams: need ${need}, have ${pool.length}`,
       );
     }
     const shuffled = seededShuffle(pool, seed, `pool:${sc.sport_id}`);

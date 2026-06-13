@@ -124,6 +124,14 @@ export default async function AdminSweepstakes() {
               >
                 🔢 Scoring
               </Link>
+              {p.game_mode !== "bracket" && (
+                <Link
+                  href={`/admin/sweepstakes/${p.id}/pool`}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-raised"
+                >
+                  🎯 Draw Pool
+                </Link>
+              )}
               {p.game_mode === "bracket" && (
                 <Link
                   href={`/admin/sweepstakes/${p.id}/bracket`}
