@@ -10,6 +10,7 @@ const NAV: [string, string, string][] = [
   ["dataops", "/admin/dataops", "Data Ops"],
   ["payouts", "/admin/payouts", "Payouts"],
   ["users", "/admin/users", "Users"],
+  ["settings", "/admin/settings", "Settings"],
 ];
 
 export default async function AdminLayout({

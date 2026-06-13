@@ -12,6 +12,7 @@ const SECTIONS = [
   ["dataops", "Data Ops"],
   ["payouts", "Payouts"],
   ["users", "Users"],
+  ["settings", "Settings"],
 ] as const;
 
 function PermissionChecks({

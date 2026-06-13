@@ -9,6 +9,7 @@ export type StaffSection =
   | "simulator"
   | "dataops"
   | "payouts"
+  | "settings"
   | "users";
 
 export type StaffContext = {
@@ -20,7 +21,7 @@ export type StaffContext = {
 /** Sections a staff context can see (admins see everything). */
 export function allowedSections(ctx: StaffContext): StaffSection[] {
   if (ctx.role === "admin") {
-    return ["overview", "sweepstakes", "products", "branding", "simulator", "dataops", "payouts", "users"];
+    return ["overview", "sweepstakes", "products", "branding", "simulator", "dataops", "payouts", "users", "settings"];
   }
   return ctx.permissions;
 }

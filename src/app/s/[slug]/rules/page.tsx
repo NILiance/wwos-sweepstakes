@@ -3,6 +3,7 @@ import { poolAccess } from "@/lib/pool-access";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usd, ordinal } from "@/lib/format";
+import { getSponsor, formatSponsorAddress } from "@/lib/settings";
 
 export const revalidate = 0;
 
@@ -33,6 +34,8 @@ export default async function RulesPage({
     sports: { name: string };
   }[];
   const totalPicks = sports.reduce((n, s) => n + s.picks_per_entry, 0);
+  const sponsor = await getSponsor();
+  const sponsorAddress = formatSponsorAddress(sponsor);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -73,12 +76,26 @@ export default async function RulesPage({
             <strong>Free mail-in entry (no purchase necessary):</strong> mail a
             handwritten request including your full name, email address, and
             the sweepstakes name, with a self-addressed stamped envelope, to
-            the sponsor&apos;s address listed on your receipt or available on
-            request. One entry per envelope. Mail-in entries receive a full
-            sweepstakes entry with identical odds, but do not include the
-            product or its discount offers. Mail-in requests must be received
-            while entry spots remain open.
+            the sponsor at the address below. One entry per envelope. Mail-in
+            entries receive a full sweepstakes entry with identical odds, but
+            do not include the product or its discount offers. Mail-in requests
+            must be received while entry spots remain open.
           </p>
+          {sponsorAddress ? (
+            <div className="mt-3 rounded-md bg-surface p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Mail entries to
+              </p>
+              <p className="mt-1 whitespace-pre-line">{sponsorAddress}</p>
+              {sponsor.amoeNote && (
+                <p className="mt-2 text-muted">{sponsor.amoeNote}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted">
+              (Sponsor mailing address available on request.)
+            </p>
+          )}
         </section>
 
         <section>
