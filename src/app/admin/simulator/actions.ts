@@ -7,6 +7,7 @@ import { runDraw, finishDrawNow } from "@/lib/draw";
 import { scorePass } from "@/lib/ingest";
 
 const SIM_SLUG = "draw-simulator";
+const REHEARSAL_SLUG = "draw-rehearsal";
 const SIM_EMAIL = "simulator@wwossweepstakes.com";
 
 // The original WWOS 4 field — familiar names make the simulation feel real
@@ -58,7 +59,7 @@ async function wipeSimPool(
   await admin.from("entries").delete().eq("sweepstakes_id", simId);
 }
 
-export async function resetSimulator(): Promise<{
+async function resetPool(slug: string, name: string): Promise<{
   ok: boolean;
   message: string;
 }> {
@@ -67,19 +68,19 @@ export async function resetSimulator(): Promise<{
     const admin = createAdminClient();
     const simUserId = await getSimUserId(admin);
 
-    // Find or create the simulator pool (private, hidden from browse)
+    // Find or create the practice pool (private, hidden from browse)
     let { data: sim } = await admin
       .from("sweepstakes")
       .select("id")
-      .eq("slug", SIM_SLUG)
+      .eq("slug", slug)
       .maybeSingle();
 
     if (!sim) {
       const { data: created, error } = await admin
         .from("sweepstakes")
         .insert({
-          name: "Draw Simulator",
-          slug: SIM_SLUG,
+          name,
+          slug,
           description: "Practice run — not a real pool.",
           season_label: "Simulation",
           visibility: "private",
@@ -146,7 +147,7 @@ export async function resetSimulator(): Promise<{
     revalidatePath("/admin/simulator");
     return {
       ok: true,
-      message: "Simulator ready — 15 entries seeded. Run the draw!",
+      message: `${name} ready — 15 entries seeded. Run the draw!`,
     };
   } catch (err) {
     return {
@@ -154,6 +155,16 @@ export async function resetSimulator(): Promise<{
       message: err instanceof Error ? err.message : "Reset failed.",
     };
   }
+}
+
+export async function resetSimulator() {
+  return resetPool(SIM_SLUG, "Draw Simulator");
+}
+
+/** Separate practice pool just for live-draw rehearsal — leaves the
+ *  populated preview pool untouched. */
+export async function resetRehearsal() {
+  return resetPool(REHEARSAL_SLUG, "Draw Rehearsal");
 }
 
 const CHATTER: [number, string][] = [

@@ -2,14 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { resetSimulator, instantPreview } from "./actions";
+import { resetSimulator, resetRehearsal, instantPreview } from "./actions";
+
+const ACTIONS = {
+  reset: resetSimulator,
+  preview: instantPreview,
+  rehearsal: resetRehearsal,
+} as const;
 
 export function ResetButton({
   label,
   mode = "reset",
 }: {
   label: string;
-  mode?: "reset" | "preview";
+  mode?: keyof typeof ACTIONS;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -18,7 +24,7 @@ export function ResetButton({
   async function handle() {
     setBusy(true);
     setMessage(null);
-    const r = mode === "preview" ? await instantPreview() : await resetSimulator();
+    const r = await ACTIONS[mode]();
     setMessage(r.message);
     setBusy(false);
     router.refresh();
