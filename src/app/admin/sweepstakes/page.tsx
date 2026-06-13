@@ -118,6 +118,12 @@ export default async function AdminSweepstakes() {
               >
                 ✎ Edit
               </Link>
+              <Link
+                href={`/admin/sweepstakes/${p.id}/scoring`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-raised"
+              >
+                🔢 Scoring
+              </Link>
             </div>
 
             <details className="mt-4">

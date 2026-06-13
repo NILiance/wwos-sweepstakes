@@ -57,8 +57,33 @@ export type ProviderGame = {
   awayScore: number | null;
   channel: string | null;
   eventType: string; // scoring rule_key ('regular', 'wildcard', 'sugar_bowl', …)
+  half1WinnerKey: string | null; // provider key of 1st-half winner, if quarters present
+  half2WinnerKey: string | null;
   raw?: unknown;
 };
+
+/** Compute half winners from quarter scores when the feed carries them. */
+function halfWinners(
+  g: Record<string, unknown>,
+  homeKey: string,
+  awayKey: string,
+): { half1: string | null; half2: string | null } {
+  const q = (side: "Home" | "Away", n: number) =>
+    typeof g[`${side}ScoreQuarter${n}`] === "number"
+      ? (g[`${side}ScoreQuarter${n}`] as number)
+      : null;
+  const hq = [1, 2, 3, 4].map((n) => q("Home", n));
+  const aq = [1, 2, 3, 4].map((n) => q("Away", n));
+  if (hq.some((v) => v === null) || aq.some((v) => v === null)) {
+    return { half1: null, half2: null };
+  }
+  const h1 = (hq[0]! + hq[1]!) - (aq[0]! + aq[1]!);
+  const h2 = (hq[2]! + hq[3]!) - (aq[2]! + aq[3]!);
+  return {
+    half1: h1 > 0 ? homeKey : h1 < 0 ? awayKey : null,
+    half2: h2 > 0 ? homeKey : h2 < 0 ? awayKey : null,
+  };
+}
 
 /** Map a postseason game to its scoring rule_key where deterministic. */
 function eventTypeFor(
@@ -142,6 +167,10 @@ export async function fetchSeasonGames(
         num(g["AwayTeamRuns"]) ?? num(g["AwayTeamScore"]) ?? num(g["AwayScore"]),
       channel: (g["Channel"] as string) ?? null,
       eventType: eventTypeFor(league, isPost, g["Week"], g["Title"]),
+      ...(() => {
+        const hw = halfWinners(g, String(g["HomeTeam"]), String(g["AwayTeam"]));
+        return { half1WinnerKey: hw.half1, half2WinnerKey: hw.half2 };
+      })(),
     }));
 }
 

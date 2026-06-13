@@ -196,7 +196,13 @@ export default async function PoolEntryPage({
                     </span>
                   )}
                   <span className="ml-2 text-xs text-muted">
-                    {e.rule_key === "regular" ? "win" : e.rule_key}
+                    {e.rule_key === "regular"
+                      ? "win"
+                      : e.rule_key === "regular_half1"
+                        ? "1st half"
+                        : e.rule_key === "regular_half2"
+                          ? "2nd half"
+                          : e.rule_key.replace(/_/g, " ")}
                   </span>
                 </span>
                 <span className="flex items-center gap-3">

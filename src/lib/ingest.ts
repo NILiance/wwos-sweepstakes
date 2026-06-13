@@ -92,9 +92,26 @@ export async function syncGames(league: League) {
     byKey.set(t.abbrev.toLowerCase(), t.id);
   }
 
+  // Don't clobber admin-corrected games on re-sync
+  const manualRefs = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data } = await admin
+      .from("games")
+      .select("external_ref")
+      .eq("sport_id", league)
+      .eq("result_source", "manual")
+      .range(from, from + 999);
+    if (!data?.length) break;
+    data.forEach((g) => g.external_ref && manualRefs.add(g.external_ref));
+    if (data.length < 1000) break;
+  }
+
   let upserted = 0;
   // Dedupe within the batch — duplicate refs in one upsert chunk error out
-  const uniqueGames = [...new Map(games.map((g) => [g.externalRef, g])).values()];
+  const uniqueGames = [
+    ...new Map(games.map((g) => [g.externalRef, g])).values(),
+  ].filter((g) => !manualRefs.has(g.externalRef));
+  const halfUpdates: { ref: string; line_score: object }[] = [];
   const rows = uniqueGames.map((g) => {
     const home = g.homeKey ? byKey.get(g.homeKey.toLowerCase()) ?? null : null;
     const away = g.awayKey ? byKey.get(g.awayKey.toLowerCase()) ?? null : null;
@@ -103,6 +120,15 @@ export async function syncGames(league: League) {
       if (g.homeScore > g.awayScore) winner = home;
       else if (g.awayScore > g.homeScore) winner = away;
     }
+    const h1 = g.half1WinnerKey ? byKey.get(g.half1WinnerKey.toLowerCase()) ?? null : null;
+    const h2 = g.half2WinnerKey ? byKey.get(g.half2WinnerKey.toLowerCase()) ?? null : null;
+    // line_score is NOT in the bulk upsert (would null-clobber computed/manual
+    // values for feeds without quarters); applied as targeted updates below.
+    if (h1 || h2)
+      halfUpdates.push({
+        ref: g.externalRef,
+        line_score: { half1_winner_team_id: h1, half2_winner_team_id: h2 },
+      });
     return {
       sport_id: league,
       external_ref: g.externalRef,
@@ -127,6 +153,15 @@ export async function syncGames(league: League) {
     if (error) throw new Error(`${league} games upsert: ${error.message}`);
     upserted += chunk.length;
   }
+
+  // Targeted half-winner updates (only where quarters yielded a result)
+  for (const u of halfUpdates) {
+    await admin
+      .from("games")
+      .update({ line_score: u.line_score })
+      .eq("sport_id", league)
+      .eq("external_ref", u.ref);
+  }
   return { league, season, games: upserted };
 }
 
@@ -142,20 +177,25 @@ export async function scorePass() {
   const { data: rules } = await admin
     .from("scoring_rules")
     .select("sweepstakes_id,sport_id,rule_key,points,scope");
-  const ruleFor = (sweepstakesId: string, sport: string, key: string) => {
+  const ruleFor = (
+    sweepstakesId: string,
+    sport: string,
+    key: string,
+    scope = "full_game",
+  ) => {
     const specific = rules?.find(
       (r) =>
         r.sweepstakes_id === sweepstakesId &&
         r.sport_id === sport &&
         r.rule_key === key &&
-        r.scope === "full_game",
+        r.scope === scope,
     );
     const fallback = rules?.find(
       (r) =>
         r.sweepstakes_id === null &&
         r.sport_id === sport &&
         r.rule_key === key &&
-        r.scope === "full_game",
+        r.scope === scope,
     );
     return specific ?? fallback ?? null;
   };
@@ -183,7 +223,7 @@ export async function scorePass() {
   const finals = await allRows((from, to) =>
     admin
       .from("games")
-      .select("id,sport_id,winner_team_id,event_type")
+      .select("id,sport_id,winner_team_id,event_type,line_score")
       .eq("status", "final")
       .not("winner_team_id", "is", null)
       .in("winner_team_id", teamIds)
@@ -208,25 +248,41 @@ export async function scorePass() {
   );
 
   let events = 0;
+  // Award definition: a (winning team, scope, rule_key) for a game
   for (const game of finals) {
-    const holders = active.filter((r) => r.team_id === game.winner_team_id);
-    for (const holder of holders) {
-      const key = `${holder.entry_id}:${game.id}:full_game`;
-      if (seen.has(key)) continue;
-      const e = holder.entries as unknown as { sweepstakes_id: string };
-      const rule = ruleFor(e.sweepstakes_id, game.sport_id, game.event_type);
-      if (!rule) continue;
-      const { error } = await admin.from("point_events").insert({
-        entry_id: holder.entry_id,
-        team_id: game.winner_team_id,
-        game_id: game.id,
-        rule_key: game.event_type,
-        scope: "full_game",
-        points: rule.points,
-      });
-      if (!error) {
-        events++;
-        seen.add(key);
+    const ls = (game.line_score ?? {}) as {
+      half1_winner_team_id?: string | null;
+      half2_winner_team_id?: string | null;
+    };
+    const awards: { teamId: string; scope: string; ruleKey: string }[] = [
+      { teamId: game.winner_team_id, scope: "full_game", ruleKey: game.event_type },
+    ];
+    // Half wins use the 'regular' rule key at half1/half2 scope (config option)
+    if (ls.half1_winner_team_id)
+      awards.push({ teamId: ls.half1_winner_team_id, scope: "half1", ruleKey: "regular" });
+    if (ls.half2_winner_team_id)
+      awards.push({ teamId: ls.half2_winner_team_id, scope: "half2", ruleKey: "regular" });
+
+    for (const a of awards) {
+      const holders = active.filter((r) => r.team_id === a.teamId);
+      for (const holder of holders) {
+        const key = `${holder.entry_id}:${game.id}:${a.scope}`;
+        if (seen.has(key)) continue;
+        const e = holder.entries as unknown as { sweepstakes_id: string };
+        const rule = ruleFor(e.sweepstakes_id, game.sport_id, a.ruleKey, a.scope);
+        if (!rule || rule.points === 0) continue;
+        const { error } = await admin.from("point_events").insert({
+          entry_id: holder.entry_id,
+          team_id: a.teamId,
+          game_id: game.id,
+          rule_key: a.scope === "full_game" ? a.ruleKey : `${a.ruleKey}_${a.scope}`,
+          scope: a.scope,
+          points: rule.points,
+        });
+        if (!error) {
+          events++;
+          seen.add(key);
+        }
       }
     }
   }
