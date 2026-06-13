@@ -47,9 +47,6 @@ export default async function AdminOverview() {
           </div>
         ))}
       </div>
-      <p className="mt-8 text-sm text-muted">
-        Coming next: Draw Control Room, Data Ops queue, Payout Center.
-      </p>
     </div>
   );
 }
