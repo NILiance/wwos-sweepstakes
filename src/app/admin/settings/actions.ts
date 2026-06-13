@@ -27,3 +27,27 @@ export async function saveSponsor(
     return { ok: false, message: err instanceof Error ? err.message : "Failed." };
   }
 }
+
+export async function saveCommissionerPlan(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await requireStaff("settings");
+    const fee = Math.round(Number(formData.get("yearly_fee") ?? 0) * 100);
+    const enabled = !!formData.get("enabled");
+    await setSetting("commissioner_plan", {
+      yearly_fee_cents: fee,
+      enabled,
+    });
+    revalidatePath("/commissioner", "layout");
+    return {
+      ok: true,
+      message: enabled
+        ? `Commissioner plan ${fee > 0 ? `at $${(fee / 100).toLocaleString()}/yr` : "(free)"} — enabled.`
+        : "Commissioner plan saved (disabled).",
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}

@@ -1,6 +1,7 @@
 import { requireStaff } from "@/lib/admin-guard";
-import { getSponsor } from "@/lib/settings";
+import { getSponsor, getCommissionerPlan } from "@/lib/settings";
 import { SponsorForm } from "./sponsor-form";
+import { CommissionerPlanForm } from "./commissioner-form";
 
 export const metadata = { title: "Settings — Admin" };
 export const revalidate = 0;
@@ -8,6 +9,7 @@ export const revalidate = 0;
 export default async function SettingsPage() {
   await requireStaff("settings");
   const sponsor = await getSponsor();
+  const plan = await getCommissionerPlan();
 
   const paypalReady = !!process.env.PAYPAL_CLIENT_ID && !!process.env.PAYPAL_CLIENT_SECRET;
 
@@ -85,6 +87,17 @@ export default async function SettingsPage() {
           (no purchase necessary) entry method. Required before launch.
         </p>
         <SponsorForm initial={sponsor} />
+      </section>
+
+      {/* Commissioner plan */}
+      <section>
+        <h2 className="text-lg font-bold">Commissioner plan</h2>
+        <p className="mt-1 text-sm text-muted">
+          Lets league leaders pay a yearly fee to run their own leagues on the
+          platform (they handle their own entry money off-platform). Set the
+          price and enable it when ready.
+        </p>
+        <CommissionerPlanForm initial={plan} />
       </section>
     </div>
   );

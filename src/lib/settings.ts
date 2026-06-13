@@ -37,6 +37,15 @@ export async function getSponsor(): Promise<SponsorInfo> {
   return (await getSetting<SponsorInfo>("sponsor")) ?? {};
 }
 
+export type CommissionerPlan = {
+  yearly_fee_cents?: number;
+  enabled?: boolean;
+};
+
+export async function getCommissionerPlan(): Promise<CommissionerPlan> {
+  return (await getSetting<CommissionerPlan>("commissioner_plan")) ?? {};
+}
+
 /** Human-readable mailing address block, or null if not configured. */
 export function formatSponsorAddress(s: SponsorInfo): string | null {
   const lines = [
