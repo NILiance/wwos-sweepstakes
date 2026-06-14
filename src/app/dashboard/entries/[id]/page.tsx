@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { entryTotals } from "@/lib/standings";
+import { EntryScorecard } from "@/app/s/[slug]/entries/[id]/entry-scorecard";
+import { fmt, fmtDate, PLATFORM_TZ } from "@/lib/tz";
 import { SharePanel } from "./share-panel";
 import { DisputeForm } from "./dispute-form";
 import { EntryTabs, type EntryTab } from "./entry-tabs";
@@ -31,10 +33,11 @@ export default async function EntryPage({
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("role,is_admin")
+    .select("role,is_admin,timezone")
     .eq("id", user.id)
     .single();
   const isAdmin = profile?.role === "admin" || profile?.is_admin;
+  const tz = profile?.timezone ?? PLATFORM_TZ;
   const isOwner = entry.owner_user_id === user.id;
   if (!isOwner && !isAdmin) {
     const { data: share } = await admin
@@ -72,6 +75,20 @@ export default async function EntryPage({
 
   const { total } = await entryTotals(id);
 
+  // Per-team point totals for the personal scorecard (paginated)
+  const teamPoints = new Map<string, number>();
+  for (let from = 0; ; from += 1000) {
+    const { data } = await admin
+      .from("point_events")
+      .select("points,team_id")
+      .eq("entry_id", id)
+      .range(from, from + 999);
+    if (!data?.length) break;
+    for (const ev of data)
+      teamPoints.set(ev.team_id, (teamPoints.get(ev.team_id) ?? 0) + ev.points);
+    if (data.length < 1000) break;
+  }
+
   const { data: shares } = await admin
     .from("entry_shares")
     .select("id,invited_email,status")
@@ -98,6 +115,35 @@ export default async function EntryPage({
   for (const r of roster ?? []) {
     bySport.set(r.sport_id, [...(bySport.get(r.sport_id) ?? []), r]);
   }
+
+  const scoreSections = [...bySport.entries()]
+    .map(([sportId, teams]) => {
+      const meta = teams![0].sports as unknown as {
+        short_name?: string;
+        name?: string;
+        sort_order?: number;
+      };
+      const cards = teams!.map((t) => {
+        const tm = t.teams as unknown as { abbrev: string; name: string };
+        return {
+          abbrev: tm.abbrev,
+          name: tm.name,
+          points: teamPoints.get(t.team_id) ?? 0,
+        };
+      });
+      return {
+        sportId,
+        label: meta?.short_name || meta?.name || sportId,
+        sortOrder: meta?.sort_order ?? 99,
+        teams: cards,
+        subtotal: cards.reduce((n, c) => n + c.points, 0),
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const scorecardContent = (
+    <EntryScorecard sections={scoreSections} total={total} />
+  );
 
   const rosterContent = (
     <section>
@@ -160,15 +206,7 @@ export default async function EntryPage({
                   </span>
                 </span>
                 <span className="text-right text-xs text-muted">
-                  {g.starts_at
-                    ? new Date(g.starts_at).toLocaleString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })
-                    : "TBD"}
+                  {fmt(g.starts_at ?? null, tz)}
                   {bc?.network && (
                     <span className="ml-1 font-semibold text-foreground">
                       · {bc.network}
@@ -223,12 +261,7 @@ export default async function EntryPage({
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="text-xs text-muted">
-                    {game?.starts_at
-                      ? new Date(game.starts_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })
-                      : ""}
+                    {fmtDate(game?.starts_at ?? null, tz)}
                   </span>
                   <span className="font-bold text-info">+{e.points}</span>
                 </span>
@@ -242,6 +275,7 @@ export default async function EntryPage({
   );
 
   const tabs: EntryTab[] = [
+    { key: "scorecard", label: "🟩 Scorecard", content: scorecardContent },
     { key: "roster", label: "🏟 Roster", content: rosterContent },
     { key: "games", label: "📺 Upcoming Games", content: gamesContent },
     { key: "history", label: "📊 Points History", content: historyContent },

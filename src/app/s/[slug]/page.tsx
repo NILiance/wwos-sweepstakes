@@ -7,6 +7,7 @@ import { resolvePayouts } from "@/lib/payouts";
 import { BuyButton } from "./buy-button";
 import { ProductGallery } from "./product-gallery";
 import { WaitlistButton } from "./waitlist-button";
+import { RegisterForm } from "./register-form";
 
 export const revalidate = 0;
 
@@ -200,7 +201,7 @@ export default async function ShowcasePage({
         <div>
           <div className="sticky top-6 rounded-lg border border-border bg-surface p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-silver">
-              The Product
+              {product ? "The Product" : "Join this league"}
             </p>
             {product ? (
               <>
@@ -271,10 +272,23 @@ export default async function ShowcasePage({
                   don&apos;t include the product&apos;s offers.
                 </p>
               </>
-            ) : (
+            ) : sw.game_mode === "bracket" ? (
               <p className="mt-2 text-sm text-muted">
-                Product not yet announced.
+                Fill out your bracket to join — no purchase required.
               </p>
+            ) : (
+              <>
+                <h2 className="mt-2 text-xl font-bold">{sw.name}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {left > 0
+                    ? `${left} of ${sw.pool_size} spots open`
+                    : "This league is full."}
+                </p>
+                <RegisterForm
+                  slug={sw.slug}
+                  disabled={left <= 0 || sw.status !== "enrolling"}
+                />
+              </>
             )}
           </div>
         </div>

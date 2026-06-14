@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PayoutForm } from "./payout-form";
+import { TimezoneForm } from "./timezone-form";
+import { PLATFORM_TZ } from "@/lib/tz";
 
 export const metadata = { title: "Settings — WWOS Sweepstakes" };
 export const revalidate = 0;
@@ -17,6 +19,12 @@ export default async function SettingsPage() {
     .from("payout_accounts")
     .select("id,method,identifier,is_preferred")
     .eq("user_id", user.id);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
 
   const paypal = accounts?.find((a) => a.method === "paypal");
   const venmo = accounts?.find((a) => a.method === "venmo");
@@ -40,6 +48,15 @@ export default async function SettingsPage() {
           preferred,
         }}
       />
+
+      <section className="mt-10 border-t border-border pt-8">
+        <h2 className="text-xl font-bold">Timezone</h2>
+        <p className="mt-1 text-sm text-muted">
+          Game times and dates show in this zone. The platform runs on Eastern by
+          default.
+        </p>
+        <TimezoneForm current={profile?.timezone ?? PLATFORM_TZ} />
+      </section>
     </div>
   );
 }
