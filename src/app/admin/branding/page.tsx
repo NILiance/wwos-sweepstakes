@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/admin-guard";
 import { getSiteTheme } from "@/lib/theme";
 import { BrandingForm } from "./branding-form";
 
@@ -14,6 +15,7 @@ const DEFAULTS = {
 };
 
 export default async function BrandingPage() {
+  await requireStaff("branding");
   const theme = await getSiteTheme();
 
   return (

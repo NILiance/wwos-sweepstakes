@@ -1,21 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, ADMIN_SECTIONS } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, p, cta, SITE } from "@/lib/email";
 
-const SECTIONS = [
-  "overview",
-  "sweepstakes",
-  "products",
-  "branding",
-  "simulator",
-  "dataops",
-  "payouts",
-  "users",
-  "settings",
-];
+// Only non-superadmin areas are grantable to a mid-tier admin (role "staff").
+const SECTIONS = ADMIN_SECTIONS as unknown as string[];
+
+const ROLE_LABEL: Record<string, string> = {
+  user: "User",
+  staff: "Admin",
+  admin: "Superadmin",
+};
 
 async function sendInviteEmail(email: string, displayName: string) {
   const admin = createAdminClient();
@@ -92,7 +89,10 @@ export async function addUser(
     }
 
     revalidatePath("/admin/users");
-    return { ok: true, message: `${displayName} added as ${role}. ${note}` };
+    return {
+      ok: true,
+      message: `${displayName} added as ${ROLE_LABEL[role] ?? role}. ${note}`,
+    };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Failed." };
   }

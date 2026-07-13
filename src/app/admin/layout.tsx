@@ -27,7 +27,7 @@ export default async function AdminLayout({
         <h1 className="text-2xl font-bold">
           Admin{" "}
           <span className="rounded-full border border-border px-2 py-0.5 align-middle text-xs font-semibold uppercase tracking-wide text-info">
-            {ctx.role === "admin" ? "Platform" : "Staff"}
+            {ctx.role === "admin" ? "Superadmin" : "Admin"}
           </span>
         </h1>
       </div>

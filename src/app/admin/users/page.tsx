@@ -20,10 +20,12 @@ export default async function UsersPage() {
   return (
     <div className="space-y-8">
       <section className="rounded-lg border border-border bg-surface p-6">
-        <h2 className="font-bold">Add user or staff</h2>
+        <h2 className="font-bold">Add a user, admin, or superadmin</h2>
         <p className="mt-1 text-sm text-muted">
-          Staff see only the backend sections you check. New users sign in with
-          a magic link to their email.
+          <strong>Admins</strong> see only the areas you grant.{" "}
+          <strong>Superadmins</strong> get everything, including users, payouts,
+          settings and branding. New accounts sign in with a magic link to their
+          email.
         </p>
         <AddUserForm />
       </section>
@@ -40,17 +42,30 @@ export default async function UsersPage() {
                     {emailById.get(p.id)}
                   </span>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
-                    (p.role ?? (p.is_admin ? "admin" : "user")) === "admin"
-                      ? "bg-accent/20 text-brand-red"
-                      : (p.role ?? "user") === "staff"
-                        ? "bg-info/10 text-info"
-                        : "bg-surface-raised text-muted"
-                  }`}
-                >
-                  {p.role ?? (p.is_admin ? "admin" : "user")}
-                </span>
+                {(() => {
+                  const r = p.role ?? (p.is_admin ? "admin" : "user");
+                  const label =
+                    r === "admin"
+                      ? "Superadmin"
+                      : r === "staff"
+                        ? "Admin"
+                        : r === "commissioner"
+                          ? "Commissioner"
+                          : "User";
+                  return (
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
+                        r === "admin"
+                          ? "bg-accent/20 text-brand-red"
+                          : r === "staff"
+                            ? "bg-info/10 text-info"
+                            : "bg-surface-raised text-muted"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
               <RoleEditor
                 userId={p.id}

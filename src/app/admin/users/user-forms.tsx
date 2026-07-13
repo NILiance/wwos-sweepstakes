@@ -9,38 +9,69 @@ import {
   deleteUser,
 } from "./actions";
 
+// Grantable (non-superadmin) areas. Users, Payouts, Settings and Branding are
+// superadmin-only and are never granted here.
 const SECTIONS = [
   ["overview", "Overview"],
   ["sweepstakes", "Sweepstakes & Draws"],
   ["products", "Products"],
-  ["branding", "Branding"],
   ["simulator", "Simulator"],
   ["dataops", "Data Ops"],
-  ["payouts", "Payouts"],
-  ["users", "Users"],
-  ["settings", "Settings"],
 ] as const;
 
-function PermissionChecks({
-  name,
-  defaults,
-}: {
-  name?: string;
-  defaults?: string[];
-}) {
+const ALL_KEYS = SECTIONS.map(([k]) => k);
+
+function PermissionChecks({ defaults }: { defaults?: string[] }) {
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(defaults ?? ALL_KEYS),
+  );
+  const toggle = (key: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
   return (
-    <div className="flex flex-wrap gap-3">
-      {SECTIONS.map(([key, label]) => (
-        <label key={key} className="flex items-center gap-1.5 text-sm">
-          <input
-            type="checkbox"
-            name={`perm_${key}`}
-            defaultChecked={defaults?.includes(key)}
-            className="accent-[var(--red-500)]"
-          />
-          {label}
-        </label>
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 text-xs">
+        <span className="font-semibold uppercase tracking-wide text-muted">
+          Areas this admin manages
+        </span>
+        <button
+          type="button"
+          onClick={() => setChecked(new Set(ALL_KEYS))}
+          className="text-info underline hover:text-foreground"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onClick={() => setChecked(new Set())}
+          className="text-info underline hover:text-foreground"
+        >
+          None
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {SECTIONS.map(([key, label]) => (
+          <label key={key} className="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              name={`perm_${key}`}
+              checked={checked.has(key)}
+              onChange={() => toggle(key)}
+              className="accent-[var(--red-500)]"
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-muted">
+        Superadmin-only areas (Users, Payouts, Settings, Branding) stay locked to
+        superadmins.
+      </p>
     </div>
   );
 }
@@ -73,8 +104,8 @@ export function AddUserForm() {
           className="rounded-md border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="user">User</option>
-          <option value="staff">Staff</option>
-          <option value="admin">Admin</option>
+          <option value="staff">Admin</option>
+          <option value="admin">Superadmin</option>
         </select>
         <input
           name="password"
@@ -140,12 +171,10 @@ export function RoleEditor({
         className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
       >
         <option value="user">User</option>
-        <option value="staff">Staff</option>
-        <option value="admin">Admin</option>
+        <option value="staff">Admin</option>
+        <option value="admin">Superadmin</option>
       </select>
-      {selRole === "staff" && (
-        <PermissionChecks name="perm" defaults={permissions} />
-      )}
+      {selRole === "staff" && <PermissionChecks defaults={permissions} />}
       <div className="flex gap-3">
         <button
           type="submit"

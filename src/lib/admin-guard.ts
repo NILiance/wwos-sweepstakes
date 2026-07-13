@@ -18,12 +18,44 @@ export type StaffContext = {
   permissions: StaffSection[];
 };
 
-/** Sections a staff context can see (admins see everything). */
+export const ALL_SECTIONS: StaffSection[] = [
+  "overview",
+  "sweepstakes",
+  "products",
+  "branding",
+  "simulator",
+  "dataops",
+  "payouts",
+  "users",
+  "settings",
+];
+
+/**
+ * Superadmin-only areas. A mid-tier admin (role "staff") can never reach these,
+ * even if a permission slipped into their record — only a full "admin"
+ * (superadmin) passes. These control accounts/roles, money, platform config,
+ * and brand identity.
+ */
+export const SUPERADMIN_SECTIONS: StaffSection[] = [
+  "users",
+  "payouts",
+  "settings",
+  "branding",
+];
+
+/** Areas a mid-tier admin can be granted. */
+export const ADMIN_SECTIONS: StaffSection[] = ALL_SECTIONS.filter(
+  (s) => !SUPERADMIN_SECTIONS.includes(s),
+);
+
+const isSuperadminSection = (s: StaffSection) =>
+  SUPERADMIN_SECTIONS.includes(s);
+
+/** Sections a context can see (superadmins see everything). */
 export function allowedSections(ctx: StaffContext): StaffSection[] {
-  if (ctx.role === "admin") {
-    return ["overview", "sweepstakes", "products", "branding", "simulator", "dataops", "payouts", "users", "settings"];
-  }
-  return ctx.permissions;
+  if (ctx.role === "admin") return ALL_SECTIONS;
+  // Mid-tier admin: only the non-superadmin areas they've been granted.
+  return ctx.permissions.filter((s) => !isSuperadminSection(s));
 }
 
 /**
@@ -55,8 +87,10 @@ export async function requireStaff(
   ) as StaffSection[];
 
   const ctx: StaffContext = { userId: user.id, role, permissions };
-  if (section && role !== "admin" && !permissions.includes(section)) {
-    redirect("/admin");
+  if (section && role !== "admin") {
+    // Superadmin-only areas never open to a mid-tier admin.
+    if (isSuperadminSection(section)) redirect("/admin");
+    if (!permissions.includes(section)) redirect("/admin");
   }
   return ctx;
 }
