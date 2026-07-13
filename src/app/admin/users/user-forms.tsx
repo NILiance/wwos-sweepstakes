@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ADMIN_SECTIONS, SECTION_LABELS } from "@/lib/admin-sections";
 import {
   addUser,
   updateUserRole,
@@ -9,21 +10,16 @@ import {
   deleteUser,
 } from "./actions";
 
-// Grantable (non-superadmin) areas. Users, Payouts, Settings and Branding are
-// superadmin-only and are never granted here.
-const SECTIONS = [
-  ["overview", "Overview"],
-  ["sweepstakes", "Sweepstakes & Draws"],
-  ["products", "Products"],
-  ["simulator", "Simulator"],
-  ["dataops", "Data Ops"],
-] as const;
-
-const ALL_KEYS = SECTIONS.map(([k]) => k);
+// Grantable (non-superadmin) areas come from ADMIN_SECTIONS. Users, Payouts,
+// Settings and Branding are superadmin-only and are never granted here.
+const ALL_KEYS = ADMIN_SECTIONS as unknown as string[];
 
 function PermissionChecks({ defaults }: { defaults?: string[] }) {
   const [checked, setChecked] = useState<Set<string>>(
-    () => new Set(defaults ?? ALL_KEYS),
+    () =>
+      new Set(
+        (defaults ?? ALL_KEYS).filter((d) => ALL_KEYS.includes(d)),
+      ),
   );
   const toggle = (key: string) =>
     setChecked((prev) => {
@@ -55,7 +51,7 @@ function PermissionChecks({ defaults }: { defaults?: string[] }) {
         </button>
       </div>
       <div className="flex flex-wrap gap-3">
-        {SECTIONS.map(([key, label]) => (
+        {ADMIN_SECTIONS.map((key) => (
           <label key={key} className="flex items-center gap-1.5 text-sm">
             <input
               type="checkbox"
@@ -64,7 +60,7 @@ function PermissionChecks({ defaults }: { defaults?: string[] }) {
               onChange={() => toggle(key)}
               className="accent-[var(--red-500)]"
             />
-            {label}
+            {SECTION_LABELS[key]}
           </label>
         ))}
       </div>

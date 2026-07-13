@@ -1,52 +1,29 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  type StaffSection,
+  ALL_SECTIONS,
+  SUPERADMIN_SECTIONS,
+  ADMIN_SECTIONS,
+  SECTION_LABELS,
+  ROLE_LABEL,
+} from "@/lib/admin-sections";
 
-export type StaffSection =
-  | "overview"
-  | "sweepstakes"
-  | "products"
-  | "branding"
-  | "simulator"
-  | "dataops"
-  | "payouts"
-  | "settings"
-  | "users";
+// Re-export so existing importers of these from admin-guard keep working.
+export type { StaffSection };
+export {
+  ALL_SECTIONS,
+  SUPERADMIN_SECTIONS,
+  ADMIN_SECTIONS,
+  SECTION_LABELS,
+  ROLE_LABEL,
+};
 
 export type StaffContext = {
   userId: string;
   role: "staff" | "admin";
   permissions: StaffSection[];
 };
-
-export const ALL_SECTIONS: StaffSection[] = [
-  "overview",
-  "sweepstakes",
-  "products",
-  "branding",
-  "simulator",
-  "dataops",
-  "payouts",
-  "users",
-  "settings",
-];
-
-/**
- * Superadmin-only areas. A mid-tier admin (role "staff") can never reach these,
- * even if a permission slipped into their record — only a full "admin"
- * (superadmin) passes. These control accounts/roles, money, platform config,
- * and brand identity.
- */
-export const SUPERADMIN_SECTIONS: StaffSection[] = [
-  "users",
-  "payouts",
-  "settings",
-  "branding",
-];
-
-/** Areas a mid-tier admin can be granted. */
-export const ADMIN_SECTIONS: StaffSection[] = ALL_SECTIONS.filter(
-  (s) => !SUPERADMIN_SECTIONS.includes(s),
-);
 
 const isSuperadminSection = (s: StaffSection) =>
   SUPERADMIN_SECTIONS.includes(s);
