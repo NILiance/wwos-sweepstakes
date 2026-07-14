@@ -7,6 +7,7 @@ import {
   updateLeagueMember,
   removeLeagueMember,
   messageMembers,
+  inviteMember,
 } from "@/app/commissioner/actions";
 import { setStatus } from "@/app/admin/sweepstakes/actions";
 
@@ -71,6 +72,7 @@ export function MemberRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(updateLeagueMember, null);
+  const [invState, invAction, invPending] = useActionState(inviteMember, null);
 
   if (editing) {
     return (
@@ -105,27 +107,46 @@ export function MemberRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 py-2 text-sm">
-      <div className="min-w-0">
-        <span className="font-semibold">{member.name}</span>
-        {member.email && <span className="ml-2 text-muted">{member.email}</span>}
-        {member.phone && <span className="ml-2 text-muted">{member.phone}</span>}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          onClick={() => setEditing(true)}
-          className="text-xs font-semibold text-info hover:underline"
-        >
-          Edit
-        </button>
-        <form action={removeLeagueMember}>
-          <input type="hidden" name="sweepstakes_id" value={sweepstakesId} />
-          <input type="hidden" name="entry_id" value={member.id} />
-          <button className="text-xs font-semibold text-brand-red hover:underline">
-            Remove
+    <div className="py-2 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="font-semibold">{member.name}</span>
+          {member.email && <span className="ml-2 text-muted">{member.email}</span>}
+          {member.phone && <span className="ml-2 text-muted">{member.phone}</span>}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {member.email && (
+            <form action={invAction}>
+              <input type="hidden" name="sweepstakes_id" value={sweepstakesId} />
+              <input type="hidden" name="entry_id" value={member.id} />
+              <button
+                disabled={invPending}
+                className="text-xs font-semibold text-info hover:underline disabled:opacity-50"
+              >
+                {invPending ? "Inviting…" : "Invite"}
+              </button>
+            </form>
+          )}
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs font-semibold text-info hover:underline"
+          >
+            Edit
           </button>
-        </form>
+          <form action={removeLeagueMember}>
+            <input type="hidden" name="sweepstakes_id" value={sweepstakesId} />
+            <input type="hidden" name="entry_id" value={member.id} />
+            <button className="text-xs font-semibold text-brand-red hover:underline">
+              Remove
+            </button>
+          </form>
+        </div>
       </div>
+      {invState && (
+        <p className={`mt-1 text-xs ${invState.ok ? "text-info" : "text-brand-red"}`}>
+          {invState.message}
+        </p>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ export type StaffSection =
   | "branding"
   | "simulator"
   | "dataops"
+  | "invites"
   | "payouts"
   | "settings"
   | "users";
@@ -19,6 +20,7 @@ export const ALL_SECTIONS: StaffSection[] = [
   "branding",
   "simulator",
   "dataops",
+  "invites",
   "payouts",
   "users",
   "settings",
@@ -48,6 +50,7 @@ export const SECTION_LABELS: Record<StaffSection, string> = {
   branding: "Branding",
   simulator: "Simulator",
   dataops: "Data Ops",
+  invites: "Invites",
   payouts: "Payouts",
   settings: "Settings",
   users: "Users",

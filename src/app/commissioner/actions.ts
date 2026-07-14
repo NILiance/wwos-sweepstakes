@@ -259,6 +259,72 @@ export async function messageMembers(
 }
 
 /**
+ * Invite a member to the platform: create/find their account, link this entry
+ * to it (so their dashboard shows the league), and email a magic sign-in link.
+ */
+export async function inviteMember(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sweepstakesId = String(formData.get("sweepstakes_id"));
+    await requireLeagueAccess(sweepstakesId);
+    const entryId = String(formData.get("entry_id"));
+
+    const admin = createAdminClient();
+    const { data: entry } = await admin
+      .from("entries")
+      .select("display_name,email")
+      .eq("id", entryId)
+      .eq("sweepstakes_id", sweepstakesId)
+      .single();
+    if (!entry) return { ok: false, message: "Member not found." };
+    if (!entry.email)
+      return { ok: false, message: "Add an email for this member first." };
+
+    const { data: sw } = await admin
+      .from("sweepstakes")
+      .select("name,slug")
+      .eq("id", sweepstakesId)
+      .single();
+
+    const { getOrCreateUserId, sendMagicInvite } = await import("@/lib/invite");
+    const { p } = await import("@/lib/email");
+
+    const userId = await getOrCreateUserId(entry.email, entry.display_name);
+    if (userId) {
+      // Link the entry so the member sees it in their dashboard.
+      await admin
+        .from("entries")
+        .update({ owner_user_id: userId })
+        .eq("id", entryId);
+    }
+
+    const sent = await sendMagicInvite(entry.email, {
+      subject: `You're in: ${sw?.name ?? "the league"}`,
+      title: "You're in the league 🏆",
+      introHtml: p(
+        `Hi ${entry.display_name}, you've been added to <strong>${
+          sw?.name ?? "the league"
+        }</strong>. Sign in to follow standings, your scorecard, and the draw.`,
+      ),
+      ctaLabel: "Sign in to your league",
+      next: sw?.slug ? `/s/${sw.slug}` : "/dashboard",
+    });
+
+    revalidatePath(`/commissioner/leagues/${sweepstakesId}`);
+    return {
+      ok: sent,
+      message: sent
+        ? `Invite sent to ${entry.email}.`
+        : "Couldn't send the invite email.",
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed." };
+  }
+}
+
+/**
  * Schedule (or clear) the auto-run time for a league's draw, and set the
  * league's display timezone. Times are entered as wall-clock in the chosen
  * timezone and stored as UTC.
