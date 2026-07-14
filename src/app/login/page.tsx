@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { recordLogin } from "./actions";
 
 type Mode = "signin" | "signup" | "magic";
 
@@ -48,6 +49,7 @@ function LoginForm() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await recordLogin("password").catch(() => {});
         router.push(next);
         router.refresh();
       }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AddUserForm, RoleEditor, UserActions } from "./user-forms";
@@ -72,6 +73,12 @@ export default async function UsersPage() {
                 role={p.role ?? (p.is_admin ? "admin" : "user")}
                 permissions={Array.isArray(p.permissions) ? p.permissions : []}
               />
+              <Link
+                href={`/admin/users/${p.id}`}
+                className="mt-1 inline-block text-xs text-info underline hover:text-foreground"
+              >
+                View activity →
+              </Link>
               <UserActions
                 userId={p.id}
                 email={emailById.get(p.id) ?? ""}

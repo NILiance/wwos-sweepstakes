@@ -35,9 +35,15 @@ export async function AuthNav() {
           href="/admin"
           className="rounded-full border border-info/50 bg-info/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-info hover:bg-info/20"
         >
-          {role === "admin" ? "Admin" : "Staff"}
+          {role === "admin" ? "Superadmin" : "Admin"}
         </Link>
       )}
+      <Link
+        href="/dashboard/activity"
+        className="hidden text-sm text-muted hover:text-foreground sm:inline"
+      >
+        Activity
+      </Link>
       <span className="text-sm text-muted">
         {profile?.display_name ?? user.email}
       </span>
